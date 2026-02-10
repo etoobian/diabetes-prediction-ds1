@@ -26,6 +26,8 @@ The final deliverable is a **single, fully reproducible Jupyter notebook** that 
 ```
 README.md                       # Project overview and instructions
 
+requirements.txt                # Python package dependencies
+
 data/
 ├── README.md                   # Data documentation
 ├── raw/                        # Raw input dataset
