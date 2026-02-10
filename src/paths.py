@@ -5,8 +5,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 DATA_RAW_DIR = ROOT / "data" / "raw"
 DATA_PROC_DIR = ROOT / "data" / "processed"
-FIG_DIR = ROOT / "reports" / "figures"
-TAB_DIR = ROOT / "reports" / "tables"
+FIG_DIR = ROOT / "results" / "figures"
+TAB_DIR = ROOT / "results" / "tables"
 
 def ensure_dirs() -> None:
     """Create figure/table directories if they do not exist."""
