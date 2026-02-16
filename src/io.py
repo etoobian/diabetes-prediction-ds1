@@ -19,3 +19,15 @@ def load_raw_diabetes(filename: str = "diabetes_dataset.csv") -> pd.DataFrame:
     path = DATA_RAW_DIR / filename
     df = pd.read_csv(path)
     return df
+
+def append_data_log(row: dict, filename: str = "data_log.csv") -> None:
+    """Append one row to results/tables/data_log.csv (create if missing)."""
+    from .paths import TAB_DIR
+    import pandas as pd
+
+    path = TAB_DIR / filename
+    df_row = pd.DataFrame([row])
+    if path.exists():
+        df_row.to_csv(path, mode="a", header=False, index=False)
+    else:
+        df_row.to_csv(path, index=False)

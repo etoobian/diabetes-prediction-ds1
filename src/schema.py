@@ -1,17 +1,24 @@
 """
-Project schema for the diabetes prediction dataset.
+Dataset schema and validation references for the diabetes prediction project.
 
 This module is the single source of truth for:
 - Target column name
 - Feature groupings (categorical / numeric / binary)
-- Allowed categorical levels (when known)
-- Numeric range rules (when known)
+- Reference expectations from the dataset card (REF_*)
+- Operational expectations used in this project (non-REF)
+
+Design:
+- REF_* represent documentation-provided expectations (e.g., Kaggle card).
+  These are used for audit/reporting and may not perfectly match the CSV.
+- Operational expectations represent how we treat the dataset used in this repo.
+  These are used for consistent preprocessing/EDA/modeling and guardrail validation.
 
 Other modules (preprocessing, viz, modeling, metrics) should import schema
 information from here rather than redefining it.
 """
 
 from __future__ import annotations
+
 from typing import Dict, List, Tuple
 
 
@@ -62,9 +69,10 @@ NUMERIC_COLS: List[str] = [
     "diabetes_risk_score",
 ]
 
-# -------- ALLOWED CATEGORY LEVELS --------
-# (from Kaggle Data Card)
-ALLOWED_CATEGORIES: Dict[str, List[str]] = {
+
+# --------REFERENCE EXPECTATIONS --------
+# From dataset card / Kaggle
+REF_ALLOWED_CATEGORIES: Dict[str, List[str]] = {
     "gender": ["Male", "Female", "Other"],
     "ethnicity": ["White", "Hispanic", "Black", "Asian", "Other"],
     "education_level": ["No formal", "Highschool", "Graduate", "Postgraduate"],
@@ -74,9 +82,7 @@ ALLOWED_CATEGORIES: Dict[str, List[str]] = {
     "diabetes_stage": ["No Diabetes", "Pre-Diabetes", "Type 1", "Type 2", "Gestational"],
 }
 
-# -------- NUMERIC RANGE RULES --------
-# (from Kaggle Data Card)
-RANGE_RULES: Dict[str, Tuple[float, float]] = {
+REF_RANGE_RULES: Dict[str, Tuple[float, float]] = {
     "age": (18, 90),
     "alcohol_consumption_per_week": (0, 30),
     "physical_activity_minutes_per_week": (0, 600),
@@ -98,3 +104,39 @@ RANGE_RULES: Dict[str, Tuple[float, float]] = {
     "hba1c": (4, 14),
     "diabetes_risk_score": (0, 100),
 }
+
+
+# --------OPERATIONAL EXPECTATIONS --------
+# Operational categories reflect the CSV used in this repo.
+
+ALLOWED_CATEGORIES = dict(REF_ALLOWED_CATEGORIES)
+# income_level differs from the dataset card.
+ALLOWED_CATEGORIES["income_level"] = ["Low","Lower-Middle","Middle","Upper-Middle","High"]
+
+
+RANGE_RULES: Dict[str, Tuple[float, float]] = dict(REF_RANGE_RULES)
+# Ranges updated kept within reasonable values
+RANGE_RULES.update(
+    {
+        # Observed max ~833
+        "physical_activity_minutes_per_week": (0, 900),
+        # Observed max ~16.8
+        "screen_time_hours_per_day": (0, 18),
+        # Observed min ~0.67
+        "waist_to_hip_ratio": (0.65, 1.2),
+        # observed min ~50
+        "diastolic_bp": (50, 120),
+        # observed min ~40
+        "heart_rate": (40, 120),
+        # observed min ~100, max ~318
+        "cholesterol_total": (100, 320),
+        # observed max ~263
+        "ldl_cholesterol": (50, 270),
+        # observed min ~30
+        "triglycerides": (30, 500),
+        # observed min ~60
+        "glucose_fasting": (60, 250),
+        # observed min ~70
+        "glucose_postprandial": (70, 350),
+    }
+)
