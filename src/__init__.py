@@ -9,10 +9,11 @@ Modules:
 - viz: EDA and comparison plots
 """
 
+from . import schema
 from . import io
 from . import preprocessing
 from . import modeling
 from . import metrics
 from . import viz
 
-__all__ = ["io", "preprocessing", "modeling", "metrics", "viz"]
+__all__ = ["schema", "io", "preprocessing", "modeling", "metrics", "viz"]
