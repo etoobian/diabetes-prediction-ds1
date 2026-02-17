@@ -25,8 +25,9 @@ from typing import Dict, List, Tuple
 # -------- CORE COLUMNS --------
 TARGET_COL: str = "diagnosed_diabetes"
 
-# Empty to Start
-DROP_COLS: List[str] = []
+# Data Leakage:
+# diabetes_stage is more granular version of our target
+DROP_COLS: List[str] = ["diabetes_stage",]
 
 # -------- Feature groupings --------
 CATEGORICAL_COLS: List[str] = [
@@ -36,7 +37,6 @@ CATEGORICAL_COLS: List[str] = [
     "income_level",
     "employment_status",
     "smoking_status",
-    "diabetes_stage",
 ]
 
 BINARY_COLS: List[str] = [
@@ -79,7 +79,6 @@ REF_ALLOWED_CATEGORIES: Dict[str, List[str]] = {
     "income_level": ["Low", "Medium", "High"],
     "employment_status": ["Employed", "Unemployed", "Retired", "Student"],
     "smoking_status": ["Never", "Former", "Current"],
-    "diabetes_stage": ["No Diabetes", "Pre-Diabetes", "Type 1", "Type 2", "Gestational"],
 }
 
 REF_RANGE_RULES: Dict[str, Tuple[float, float]] = {
