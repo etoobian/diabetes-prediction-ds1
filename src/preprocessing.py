@@ -92,38 +92,56 @@ def check_allowed_categories(df: pd.DataFrame, *, reference: bool = False) -> di
 
 def check_numeric_ranges(df: pd.DataFrame, *, reference: bool = False) -> pd.DataFrame:
     """
-    Return a table of out-of-range counts for numeric features.
+    Return a diagnostic table for numeric range checks.
 
-    If reference=True, checks against REF_RANGE_RULES (documentation audit).
-    Otherwise, checks against RANGE_RULES (operational sanity bounds).
+    If reference=True:  Checks against REF_RANGE_RULES (documentation audit).
+    Else:               Checks against RANGE_RULES (operational sanity bounds).
+
+    Returns a DataFrame with:
+        feature, min_allowed, max_allowed, data_min, 
+        data_max, below_min, above_max, pct_outside
     """
     rules = REF_RANGE_RULES if reference else RANGE_RULES
     rows = []
+    n = len(df)
 
     for col, (lo, hi) in rules.items():
         if col in df.columns:
-            x = df[col]
-            below = int((x < lo).sum())
-            above = int((x > hi).sum())
+            x = df[col].dropna()
+
+            if x.empty:
+                continue
+
+            below_mask = x < lo
+            above_mask = x > hi
+
+            below = int(below_mask.sum())
+            above = int(above_mask.sum())
+
             if below + above > 0:
                 rows.append(
                     {
                         "feature": col,
                         "min_allowed": float(lo),
                         "max_allowed": float(hi),
+                        "data_min": float(x.min()),
+                        "data_max": float(x.max()),
                         "below_min": below,
                         "above_max": above,
+                        "pct_outside": (below + above) / n,
                     }
                 )
-    
+
     if not rows:
         return pd.DataFrame(
-            columns=["feature", "min_allowed", "max_allowed", "below_min", "above_max"]
-        )
+            columns=["feature", "min_allowed", "max_allowed", "data_min", 
+                     "data_max", "below_min", "above_max", "pct_outside",]
+                     )
 
     return pd.DataFrame(rows).sort_values(
-        by=["below_min", "above_max"], ascending=False
-    ).reset_index(drop=True)
+        by=["pct_outside", "below_min", "above_max"], ascending=False
+        ).reset_index(drop=True)
+
 
 def print_categorical_audit(df: pd.DataFrame) -> None:
     """
