@@ -16,6 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 DATA_RAW_DIR = ROOT / "data" / "raw"
 DATA_PROC_DIR = ROOT / "data" / "processed"
+
+# Processed subfolders (pipeline checkpoints)
+PROC_SPLITS_DIR = DATA_PROC_DIR / "splits"
+PROC_CURATED_DIR = DATA_PROC_DIR / "curated"
+PROC_REDUCED_DIR = DATA_PROC_DIR / "reduced"
+
+
 FIG_DIR = ROOT / "results" / "figures"
 TAB_DIR = ROOT / "results" / "tables"
 
@@ -23,5 +30,10 @@ def ensure_dirs() -> None:
     """Create required project directories if they do not exist."""
     DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
     DATA_PROC_DIR.mkdir(parents=True, exist_ok=True)
+
+    PROC_SPLITS_DIR.mkdir(parents=True, exist_ok=True)
+    PROC_CURATED_DIR.mkdir(parents=True, exist_ok=True)
+    PROC_REDUCED_DIR.mkdir(parents=True, exist_ok=True)
+
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     TAB_DIR.mkdir(parents=True, exist_ok=True)

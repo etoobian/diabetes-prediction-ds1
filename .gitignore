@@ -214,8 +214,5 @@ data/raw/*
 !data/raw/.gitkeep
 !data/raw/*.csv
 
-data/processed/*
-!data/processed/.gitkeep
-
 # OS specifics
 .DS_Store

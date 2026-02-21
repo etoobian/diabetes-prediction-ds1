@@ -29,9 +29,16 @@ def load_raw_diabetes(filename: str = "diabetes_dataset.csv") -> pd.DataFrame:
     return df
 
 
+def load_processed_data(path: Path) -> pd.DataFrame:
+    """
+    Load a processed dataset from disk.
+    """
+    path = Path(path)
+    return pd.read_csv(path)
+
 def load_processed_data(filename: str) -> pd.DataFrame:
     """
-    Load a processed dataset from data/processed/.
+    Load a processed dataset from disk.
     """
     from .paths import DATA_PROC_DIR
 
@@ -41,22 +48,22 @@ def load_processed_data(filename: str) -> pd.DataFrame:
 
 def save_processed_data(
     df: pd.DataFrame,
-    filename: str,
+    path: Path,
     *,
     index: bool = False,
 ) -> None:
     """
-    Save a processed dataset to data/processed/.
-
+    Save a processed dataset to disk.
     Parameters
     ----------
-    df :        DataFrame to save.
-    filename :  Name of output file (e.g., 'diabetes_clean.csv').
-    index :     Whether to save the index (default False).
+    df : pd.DataFrame
+        DataFrame to save.
+    path : Path
+        Full output path (e.g., PROC_SPLITS_DIR / "train_base.csv").
+    index : bool, default False
+        Whether to save the DataFrame index.
     """
-    from .paths import DATA_PROC_DIR
-
-    path = DATA_PROC_DIR / filename
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=index)
 
@@ -64,33 +71,39 @@ def save_processed_data(
 # ----- METADATA (JSON) -----
 def save_metadata_json(
     obj: dict[str, Any],
-    filename: str,
+    path: Path,
 ) -> None:
     """
-    Save a metadata dictionary to data/processed/ as JSON.
+    Save a metadata dictionary to disk as JSON.
 
     Parameters
     ----------
-    obj : dict
+    obj : dict[str, Any]
         Metadata to save.
-    filename : str
-        Output file name (e.g., 'split.json').
+    path : Path
+        Full output path (e.g., PROC_SPLITS_DIR / "split.json").
     """
-    from .paths import DATA_PROC_DIR
-
-    path = DATA_PROC_DIR / filename
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2, sort_keys=True)
 
 
-def load_metadata_json(filename: str) -> dict[str, Any]:
+def load_metadata_json(path: Path) -> dict[str, Any]:
     """
-    Load a metadata dictionary from data/processed/ JSON.
-    """
-    from .paths import DATA_PROC_DIR
+    Load a metadata dictionary from a JSON file on disk.
 
-    path = DATA_PROC_DIR / filename
+    Parameters
+    ----------
+    path : Path
+        Full path to the JSON file.
+
+    Returns
+    -------
+    dict[str, Any]
+        Loaded metadata dictionary.
+    """
+    path = Path(path)
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
