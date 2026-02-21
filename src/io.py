@@ -14,8 +14,11 @@ from .paths import DATA_RAW_DIR
 
 import pandas as pd
 
+import json
+from typing import Any
 
-# ----- DATA -----
+
+# ----- DATA (CSV) -----
 def load_raw_diabetes(filename: str = "diabetes_dataset.csv") -> pd.DataFrame:
     """
     Load the raw diabetes dataset from data/raw/.
@@ -24,6 +27,16 @@ def load_raw_diabetes(filename: str = "diabetes_dataset.csv") -> pd.DataFrame:
     path = DATA_RAW_DIR / filename
     df = pd.read_csv(path)
     return df
+
+
+def load_processed_data(filename: str) -> pd.DataFrame:
+    """
+    Load a processed dataset from data/processed/.
+    """
+    from .paths import DATA_PROC_DIR
+
+    path = DATA_PROC_DIR / filename
+    return pd.read_csv(path)
 
 
 def save_processed_data(
@@ -48,15 +61,38 @@ def save_processed_data(
     df.to_csv(path, index=index)
 
 
-def load_processed_data(filename: str) -> pd.DataFrame:
+# ----- METADATA (JSON) -----
+def save_metadata_json(
+    obj: dict[str, Any],
+    filename: str,
+) -> None:
     """
-    Load a processed dataset from data/processed/.
+    Save a metadata dictionary to data/processed/ as JSON.
+
+    Parameters
+    ----------
+    obj : dict
+        Metadata to save.
+    filename : str
+        Output file name (e.g., 'split.json').
     """
     from .paths import DATA_PROC_DIR
 
     path = DATA_PROC_DIR / filename
-    return pd.read_csv(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=2, sort_keys=True)
 
+
+def load_metadata_json(filename: str) -> dict[str, Any]:
+    """
+    Load a metadata dictionary from data/processed/ JSON.
+    """
+    from .paths import DATA_PROC_DIR
+
+    path = DATA_PROC_DIR / filename
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 # ----- TABLES -----
