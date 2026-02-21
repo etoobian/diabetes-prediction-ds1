@@ -2,6 +2,9 @@
 Preprocessing and validation utilities for the diabetes prediction project.
 
 Responsibilities:
+- Create the base train/test split:
+    * Drop leakage variables (LEAKAGE_COLS)
+    * Perform stratified split on TARGET_COL
 - Standardize data types (numeric, categorical, binary)
 - Validate binary domains
 - Validate categorical levels against either:
@@ -19,8 +22,11 @@ from __future__ import annotations
 
 import pandas as pd
 
+from sklearn.model_selection import train_test_split
+from .schema import TARGET_COL
+
 from .schema import (
-    DROP_COLS,
+    LEAKAGE_COLS,
     CATEGORICAL_COLS,
     BINARY_COLS,
     NUMERIC_COLS,
@@ -31,14 +37,62 @@ from .schema import (
 )
 
 
+def make_base_split(
+    df_raw: pd.DataFrame,
+    *,
+    seed: int,
+    test_size: float = 0.2,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Create the base train/test split for the project.
+    - Drops leakage columns (LEAKAGE_COLS)
+    - Stratified train/test split on TARGET_COL
+
+    Parameters
+    ----------
+    df_raw : pd.DataFrame
+        Raw dataframe loaded from CSV.
+    seed : int
+        Random seed for reproducibility.
+    test_size : float
+        Fraction of data assigned to the test set.
+
+    Returns
+    -------
+    (train_df, test_df) : tuple[pd.DataFrame, pd.DataFrame]
+        Train and test dataframes after leakage-drop, stratified split.
+    """
+    df = df_raw.drop(columns=[c for c in LEAKAGE_COLS if c in df_raw.columns]).copy()
+
+    if TARGET_COL not in df.columns:
+        raise KeyError(f"Target column '{TARGET_COL}' not found in dataframe.")
+
+    y = df[TARGET_COL]
+
+    train_df, test_df = train_test_split(
+        df,
+        test_size=test_size,
+        random_state=seed,
+        stratify=y,
+    )
+
+    return train_df.reset_index(drop=True), test_df.reset_index(drop=True)
+
+
+def drop_columns(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    """
+    Return a copy of df with the specified columns dropped (ignores missing cols).
+    """
+    out = df.copy()
+    to_drop = [c for c in cols if c in out.columns]
+    if to_drop:
+        out = out.drop(columns=to_drop)
+    return out
+
+
 def coerce_types(df: pd.DataFrame) -> pd.DataFrame:
     """Return a copy of df with standardized dtypes for downstream use."""
     out = df.copy()
-
-    # Drop any known non-feature columns
-    for c in DROP_COLS:
-        if c in out.columns:
-            out = out.drop(columns=[c])
 
     # Categoricals
     for c in CATEGORICAL_COLS:

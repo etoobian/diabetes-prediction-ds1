@@ -21,12 +21,14 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
-
 # -------- CORE COLUMNS --------
 TARGET_COL: str = "diagnosed_diabetes"
 
 # Remove Alternative Target Variables (avoid data leakage)
-DROP_COLS: List[str] = ["diabetes_stage", "diabetes_risk_score",]
+LEAKAGE_COLS: List[str] = [
+    "diabetes_stage", 
+    "diabetes_risk_score",
+]
 
 # -------- Feature groupings --------
 CATEGORICAL_COLS: List[str] = [
