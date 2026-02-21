@@ -4,13 +4,21 @@ Input/output utilities for the Diabetes Prediction project.
 This module handles:
 - Loading raw data from data/raw/
 - Saving and loading processed datasets from data/processed/
+- Saving Tables to results/tables (CSV and/or LaTex)
 """
 
 from __future__ import annotations
-import pandas as pd
+
+from pathlib import Path
 from .paths import DATA_RAW_DIR
 
+import pandas as pd
 
+import json
+from typing import Any
+
+
+# ----- DATA (CSV) -----
 def load_raw_diabetes(filename: str = "diabetes_dataset.csv") -> pd.DataFrame:
     """
     Load the raw diabetes dataset from data/raw/.
@@ -20,14 +28,191 @@ def load_raw_diabetes(filename: str = "diabetes_dataset.csv") -> pd.DataFrame:
     df = pd.read_csv(path)
     return df
 
-def append_data_log(row: dict, filename: str = "data_log.csv") -> None:
-    """Append one row to results/tables/data_log.csv (create if missing)."""
-    from .paths import TAB_DIR
-    import pandas as pd
 
-    path = TAB_DIR / filename
-    df_row = pd.DataFrame([row])
-    if path.exists():
-        df_row.to_csv(path, mode="a", header=False, index=False)
-    else:
-        df_row.to_csv(path, index=False)
+def load_processed_data(path: Path) -> pd.DataFrame:
+    """
+    Load a processed dataset from disk.
+    """
+    path = Path(path)
+    return pd.read_csv(path)
+
+def load_processed_data(filename: str) -> pd.DataFrame:
+    """
+    Load a processed dataset from disk.
+    """
+    from .paths import DATA_PROC_DIR
+
+    path = DATA_PROC_DIR / filename
+    return pd.read_csv(path)
+
+
+def save_processed_data(
+    df: pd.DataFrame,
+    path: Path,
+    *,
+    index: bool = False,
+) -> None:
+    """
+    Save a processed dataset to disk.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to save.
+    path : Path
+        Full output path (e.g., PROC_SPLITS_DIR / "train_base.csv").
+    index : bool, default False
+        Whether to save the DataFrame index.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=index)
+
+
+# ----- METADATA (JSON) -----
+def save_metadata_json(
+    obj: dict[str, Any],
+    path: Path,
+) -> None:
+    """
+    Save a metadata dictionary to disk as JSON.
+
+    Parameters
+    ----------
+    obj : dict[str, Any]
+        Metadata to save.
+    path : Path
+        Full output path (e.g., PROC_SPLITS_DIR / "split.json").
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=2, sort_keys=True)
+
+
+def load_metadata_json(path: Path) -> dict[str, Any]:
+    """
+    Load a metadata dictionary from a JSON file on disk.
+
+    Parameters
+    ----------
+    path : Path
+        Full path to the JSON file.
+
+    Returns
+    -------
+    dict[str, Any]
+        Loaded metadata dictionary.
+    """
+    path = Path(path)
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+# ----- TABLES -----
+
+# Tables as CSV
+def save_table_csv(df: pd.DataFrame, path: Path, *, index: bool = False, save: bool = True) -> Path | None:
+    """
+    Save a DataFrame to disk as CSV.
+
+    Parameters
+    ----------
+    df :    DataFrame  -  Table to save.
+    path :  Path  -  Output file path.
+    index : bool
+    save :  bool  -  If False, do nothing and return None.
+
+    Returns
+    -------
+    Path | None  -  The output path if saved, else None.
+    """
+    if not save:
+        return None
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=index)
+    return path
+
+
+# LaTex TABLES
+def latex_escape_underscores(s) -> str:
+    """Escape underscores for LaTeX."""
+    return str(s).replace("_", r"\_")
+
+
+def escape_df_underscores(df: pd.DataFrame, cols: tuple[str, ...] = ("feature",)) -> pd.DataFrame:
+    """Escape underscores in specified string columns (returns a copy)."""
+    out = df.copy()
+    for c in cols:
+        if c in out.columns:
+            out[c] = out[c].astype(str).apply(latex_escape_underscores)
+    return out
+
+
+def df_to_tabular_tex(df: pd.DataFrame, *, float_fmt: str = "%.4f", index: bool = False) -> str:
+    """Return LaTeX tabular with booktabs formatting."""
+    return df.to_latex(
+        index=index,
+        escape=False,
+        float_format=(lambda x: float_fmt % x) if float_fmt else None,
+        bold_rows=False,
+        longtable=False,
+    )
+
+
+def wrap_table(tabular_tex: str, *, caption: str, label: str) -> str:
+    """Wrap a tabular in a standalone LaTeX table environment."""
+    return "\n".join(
+        [
+            r"\begin{table}[H]",
+            r"\begin{center}",
+            tabular_tex.strip(),
+            r"\end{center}",
+            r"\vspace{-5pt}",
+            rf"\caption{{{caption}}}",
+            rf"\label{{{label}}}",
+            r"\end{table}",
+            "",
+        ]
+    )
+
+
+def save_table_tex(
+    df: pd.DataFrame,
+    path: Path,
+    *,
+    caption: str,
+    label: str,
+    float_fmt: str = "%.4f",
+    index: bool = False,
+    escape_underscore_cols: tuple[str, ...] | None = ("feature",),
+    save: bool = True,
+) -> Path | None:
+    """
+    Save a DataFrame as a LaTeX table file.
+
+    Parameters
+    ----------
+    df :       DataFrame
+    path :     Path  -  Output file path (e.g., TAB_DIR / "my_table.tex")
+    caption :  str
+    label :    str
+    save :     bool  -  If False, do nothing and return None.
+    """
+    if not save:
+        return None
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if escape_underscore_cols:
+        df = escape_df_underscores(df, cols=escape_underscore_cols)
+
+    tex = wrap_table(
+        df_to_tabular_tex(df, float_fmt=float_fmt, index=index),
+        caption=caption,
+        label=label,
+    )
+    path.write_text(tex, encoding="utf-8")
+    return path

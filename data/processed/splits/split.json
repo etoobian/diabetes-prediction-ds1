@@ -1,0 +1,19 @@
+{
+  "leakage_cols": [
+    "diabetes_stage",
+    "diabetes_risk_score"
+  ],
+  "seed": 587,
+  "target": "diagnosed_diabetes",
+  "test_class_counts": {
+    "0": 8000,
+    "1": 12000
+  },
+  "test_rows": 20000,
+  "test_size": 0.2,
+  "train_class_counts": {
+    "0": 32002,
+    "1": 47998
+  },
+  "train_rows": 80000
+}
