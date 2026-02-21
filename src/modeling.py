@@ -35,7 +35,7 @@ def fit_rf_feature_screening(
     n_jobs: int = -1,
 ) -> Tuple[Pipeline, pd.DataFrame]:
     """
-    Fit a RandomForestClassifier on the full dataset for feature screening.
+    Fit a RandomForestClassifier on the provided dataset for feature screening.
 
     Notes:
     - This is intended for ranking feature importances (not unbiased performance).
@@ -84,3 +84,44 @@ def fit_rf_feature_screening(
     )
 
     return pipe, importance_df
+
+
+def aggregate_importance_by_feature(
+    importance_df: pd.DataFrame,
+    categorical_cols: list[str],
+) -> pd.DataFrame:
+    """
+    Aggregate one-hot encoded categorical features back to their original feature.
+
+    Only aggregates features that were originally in CATEGORICAL_COLS.
+    Numeric and binary features remain unchanged.
+    """
+
+    agg = {}
+
+    for _, row in importance_df.iterrows():
+        feature = row["feature"]
+        importance = row["importance"]
+
+        # Check if feature belongs to a categorical variable
+        matched = False
+        for cat in categorical_cols:
+            prefix = f"{cat}_"
+            if feature.startswith(prefix):
+                agg[cat] = agg.get(cat, 0.0) + importance
+                matched = True
+                break
+
+        # If not categorical dummy, keep as-is
+        if not matched:
+            agg[feature] = agg.get(feature, 0.0) + importance
+
+    out = (
+        pd.DataFrame(
+            {"feature": list(agg.keys()), "importance": list(agg.values())}
+        )
+        .sort_values("importance", ascending=False)
+        .reset_index(drop=True)
+    )
+
+    return out
