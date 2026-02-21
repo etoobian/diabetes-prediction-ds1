@@ -1,0 +1,47 @@
+{
+  "columns_after": [
+    "age",
+    "gender",
+    "ethnicity",
+    "education_level",
+    "income_level",
+    "employment_status",
+    "smoking_status",
+    "alcohol_consumption_per_week",
+    "physical_activity_minutes_per_week",
+    "diet_score",
+    "sleep_hours_per_day",
+    "screen_time_hours_per_day",
+    "family_history_diabetes",
+    "hypertension_history",
+    "cardiovascular_history",
+    "bmi",
+    "systolic_bp",
+    "diastolic_bp",
+    "heart_rate",
+    "hdl_cholesterol",
+    "ldl_cholesterol",
+    "triglycerides",
+    "insulin_level",
+    "hba1c"
+  ],
+  "curation_drop_cols": [
+    "waist_to_hip_ratio",
+    "cholesterol_total",
+    "glucose_fasting",
+    "glucose_postprandial"
+  ],
+  "leakage_cols_removed_pre_split": [
+    "diabetes_stage",
+    "diabetes_risk_score"
+  ],
+  "n_dropped": 4,
+  "n_features_after": 24,
+  "n_features_before": 28,
+  "notes": "Redundant physiological measures removed based on training-set EDA and domain reasoning.",
+  "source_datasets": {
+    "test": "splits/test_base.csv",
+    "train": "splits/train_base.csv"
+  },
+  "target": "diagnosed_diabetes"
+}
