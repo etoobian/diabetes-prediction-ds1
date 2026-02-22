@@ -1,0 +1,46 @@
+{
+  "construction_method": "Random Forest feature screening (MDI importance)",
+  "hba1c_handling": "Always included; non-HbA1c features ranked by renormalized importance",
+  "notes": "Reduced dataset constructed for nested logistic regression comparison and downstream structural model comparison. Feature screening performed on training data only.",
+  "parent_dataset": "train_curated_full / test_curated_full",
+  "random_seed": 587,
+  "selected_features_full_model": [
+    "hba1c",
+    "physical_activity_minutes_per_week",
+    "age",
+    "bmi",
+    "triglycerides",
+    "insulin_level",
+    "screen_time_hours_per_day",
+    "ldl_cholesterol",
+    "diet_score",
+    "systolic_bp",
+    "family_history_diabetes",
+    "sleep_hours_per_day",
+    "hdl_cholesterol",
+    "heart_rate",
+    "diastolic_bp"
+  ],
+  "selected_features_non_hba1c": [
+    "physical_activity_minutes_per_week",
+    "age",
+    "bmi",
+    "triglycerides",
+    "insulin_level",
+    "screen_time_hours_per_day",
+    "ldl_cholesterol",
+    "diet_score",
+    "systolic_bp",
+    "family_history_diabetes",
+    "sleep_hours_per_day",
+    "hdl_cholesterol",
+    "heart_rate",
+    "diastolic_bp"
+  ],
+  "selection_rule": {
+    "approx_cumulative_importance_target": 0.8,
+    "cutoff_feature": "diastolic_bp",
+    "top_k_non_hba1c": 14
+  },
+  "target_column": "diagnosed_diabetes"
+}

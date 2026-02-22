@@ -9,13 +9,14 @@ This module handles:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from .paths import DATA_RAW_DIR
 
-import pandas as pd
-
 import json
 from typing import Any
+
+import pandas as pd
 
 
 # ----- DATA (CSV) -----
@@ -34,15 +35,6 @@ def load_processed_data(path: Path) -> pd.DataFrame:
     Load a processed dataset from disk.
     """
     path = Path(path)
-    return pd.read_csv(path)
-
-def load_processed_data(filename: str) -> pd.DataFrame:
-    """
-    Load a processed dataset from disk.
-    """
-    from .paths import DATA_PROC_DIR
-
-    path = DATA_PROC_DIR / filename
     return pd.read_csv(path)
 
 
@@ -66,6 +58,95 @@ def save_processed_data(
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=index)
+
+# ----- MODELING DATASET HELPERS -----
+
+@dataclass(frozen=True)
+class ThreeVariantSplits:
+    """
+    Container for 3 predictor-set variants built from the same base dataset (train/test):
+
+    - all: all predictors present in the input artifact
+    - hba1c: HbA1c-only baseline
+    - non_hba1c: all predictors except HbA1c
+
+    Each variant always includes the target column.
+    """
+    train_all: pd.DataFrame
+    test_all: pd.DataFrame
+    train_hba1c: pd.DataFrame
+    test_hba1c: pd.DataFrame
+    train_non_hba1c: pd.DataFrame
+    test_non_hba1c: pd.DataFrame
+    predictors_all: list[str]
+    predictors_hba1c: list[str]
+    predictors_non_hba1c: list[str]
+
+
+def load_and_build_three_variant_splits(
+    *,
+    proc_dir: Path,
+    target_col: str,
+    hba1c_col: str = "hba1c",
+    train_filename: str,
+    test_filename: str,
+) -> ThreeVariantSplits:
+    """
+    Load a processed train/test artifact pair and construct 3 predictor-set variants:
+
+    1) all predictors (as provided by the artifact)
+    2) HbA1c-only
+    3) all predictors except HbA1c
+
+    Parameters
+    ----------
+    proc_dir : Path
+        Directory containing the processed artifacts.
+    target_col : str
+        Target column name.
+    hba1c_col : str, default "hba1c"
+        HbA1c column name.
+    train_filename, test_filename : str
+        CSV filenames inside proc_dir.
+
+    Returns
+    -------
+    ThreeVariantSplits
+        Dataclass containing six datasets and predictor lists.
+    """
+    proc_dir = Path(proc_dir)
+    train_path = proc_dir / train_filename
+    test_path = proc_dir / test_filename
+
+    train_df = load_processed_data(train_path)
+    test_df = load_processed_data(test_path)
+
+    if target_col not in train_df.columns or target_col not in test_df.columns:
+        raise KeyError(f"Target column '{target_col}' not found in artifacts.")
+
+    predictors_all = [c for c in train_df.columns if c != target_col]
+
+    if hba1c_col not in predictors_all:
+        raise KeyError(f"Expected '{hba1c_col}' to be present in the artifact predictors.")
+
+    predictors_hba1c = [hba1c_col]
+    predictors_non_hba1c = [c for c in predictors_all if c != hba1c_col]
+
+    def _subset(df: pd.DataFrame, preds: list[str]) -> pd.DataFrame:
+        return df[preds + [target_col]].copy()
+
+    return ThreeVariantSplits(
+        train_all=_subset(train_df, predictors_all),
+        test_all=_subset(test_df, predictors_all),
+        train_hba1c=_subset(train_df, predictors_hba1c),
+        test_hba1c=_subset(test_df, predictors_hba1c),
+        train_non_hba1c=_subset(train_df, predictors_non_hba1c),
+        test_non_hba1c=_subset(test_df, predictors_non_hba1c),
+        predictors_all=predictors_all,
+        predictors_hba1c=predictors_hba1c,
+        predictors_non_hba1c=predictors_non_hba1c,
+    )
+
 
 
 # ----- METADATA (JSON) -----
