@@ -17,12 +17,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
-
-def set_plot_defaults():
-    plt.rcParams["figure.figsize"] = (7, 4.5)
-    plt.rcParams["axes.grid"] = True
-
-
 def set_plot_defaults(
     *,
     figsize: tuple[float, float] = (7.0, 4.5),
