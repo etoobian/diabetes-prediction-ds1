@@ -64,17 +64,39 @@ from scipy.stats import chi2
 # 0) Shared preprocessing helpers (private)
 # =============================================================================
 
-def _build_preprocessor(categorical_cols: list[str], numeric_cols: list[str]) -> ColumnTransformer:
+def _build_preprocessor(
+    categorical_cols: list[str],
+    numeric_cols: list[str],
+    *,
+    drop_first: bool = False,
+) -> ColumnTransformer:
     """
-    Build a ColumnTransformer that one-hot encodes categoricals and passes numeric through.
+    Build a ColumnTransformer that one-hot encodes categorical variables and
+    passes numeric variables through unchanged.
 
-    Uses sparse_output=False when available (sklearn>=1.2), otherwise falls back to sparse=False.
+    Parameters
+    ----------
+    categorical_cols : list[str]
+        Categorical feature column names.
+    numeric_cols : list[str]
+        Numeric + binary feature column names.
+    drop_first : bool, default False
+        If True, drop the first level of each categorical feature (useful for
+        MLE logistic regression to avoid perfect multicollinearity). If False,
+        keep all levels (recommended for tree models like Random Forest).
+
+    Notes
+    -----
+    Uses sparse_output=False when available (sklearn>=1.2), otherwise falls back
+    to sparse=False.
     """
+    drop = "first" if drop_first else None
+
     # sklearn compatibility: sparse_output replaced sparse
     try:
-        ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+        ohe = OneHotEncoder(handle_unknown="ignore", drop=drop, sparse_output=False)
     except TypeError:
-        ohe = OneHotEncoder(handle_unknown="ignore", sparse=False)
+        ohe = OneHotEncoder(handle_unknown="ignore", drop=drop, sparse=False)
 
     return ColumnTransformer(
         transformers=[
@@ -187,7 +209,7 @@ def fit_rf_feature_screening(
     X_df = df[categorical_cols + numeric_cols].copy()
     y = df[target_col].astype(int).to_numpy()
 
-    preprocessor = _build_preprocessor(categorical_cols, numeric_cols)
+    preprocessor = _build_preprocessor(categorical_cols, numeric_cols, drop_first=False)
 
     rf = RandomForestClassifier(
         n_estimators=n_estimators,
@@ -312,7 +334,7 @@ def fit_logit_mle(
     X_df = df[categorical_cols + numeric_cols].copy()
     y = df[target_col].astype(int).to_numpy()
 
-    pre = _build_preprocessor(categorical_cols, numeric_cols)
+    pre = _build_preprocessor(categorical_cols, numeric_cols, drop_first=True)
     X = pre.fit_transform(X_df)
     feature_names = _get_feature_names(pre, categorical_cols, numeric_cols)
 
