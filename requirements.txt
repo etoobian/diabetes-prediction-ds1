@@ -5,3 +5,5 @@ matplotlib
 seaborn
 xgboost
 jupyter
+statsmodels
+scipy
