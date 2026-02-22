@@ -413,7 +413,7 @@ def fit_logit_mle_reduced_from_full(
 
     return LogitMLEFit(
         result=result,
-        preprocessor=full_fit.preprocessor,  # reuse same fitted encoder
+        preprocessor=full_fit.preprocessor, 
         feature_names=full_fit.feature_names,
         categorical_cols=full_fit.categorical_cols,
         numeric_cols=full_fit.numeric_cols,
@@ -434,6 +434,56 @@ def predict_proba_logit_mle(fit: LogitMLEFit, df: pd.DataFrame) -> np.ndarray:
         X = sm.add_constant(X, has_constant="add")
 
     return np.asarray(fit.result.predict(X)).reshape(-1)
+
+
+def logit_coef_table(
+    fit: LogitMLEFit,
+    *,
+    include_intercept: bool = True,
+    conf_level: float = 0.95,
+    exponentiate: bool = False,
+) -> pd.DataFrame:
+    """
+    Tidy coefficient table for statsmodels Logit MLE fit.
+
+    Returns columns:
+      term, coef, std_err, z, p_value, ci_low, ci_high
+    Optionally adds odds_ratio and OR CIs.
+    """
+    res = fit.result
+
+    names = list(fit.feature_names)
+    if fit.col_mask is not None:
+        names = [n for n, keep in zip(names, fit.col_mask) if keep]
+    if fit.add_intercept:
+        names = ["const"] + names
+
+    alpha = 1.0 - float(conf_level)
+    ci = res.conf_int(alpha=alpha)
+    ci = pd.DataFrame(ci, columns=["ci_low", "ci_high"])
+    ci.index = names
+
+    out = pd.DataFrame(
+        {
+            "term": names,
+            "coef": pd.Series(res.params, index=names).values,
+            "std_err": pd.Series(res.bse, index=names).values,
+            "z": pd.Series(res.tvalues, index=names).values,
+            "p_value": pd.Series(res.pvalues, index=names).values,
+            "ci_low": ci["ci_low"].values,
+            "ci_high": ci["ci_high"].values,
+        }
+    )
+
+    if not include_intercept:
+        out = out[out["term"] != "const"].reset_index(drop=True)
+
+    if exponentiate:
+        out["odds_ratio"] = np.exp(out["coef"])
+        out["or_ci_low"] = np.exp(out["ci_low"])
+        out["or_ci_high"] = np.exp(out["ci_high"])
+
+    return out.reset_index(drop=True)
 
 
 def lrt_compare_nested(full_fit: LogitMLEFit, reduced_fit: LogitMLEFit) -> dict[str, float]:
@@ -463,10 +513,9 @@ def lrt_compare_nested(full_fit: LogitMLEFit, reduced_fit: LogitMLEFit) -> dict[
     llf_full = float(full_fit.result.llf)
     llf_red = float(reduced_fit.result.llf)
 
-    # statsmodels: df_model counts parameters excluding intercept (but consistent for diff)
-    df_full = int(full_fit.result.df_model)
-    df_red = int(reduced_fit.result.df_model)
-    df_diff = df_full - df_red
+    k_full = len(full_fit.result.params)
+    k_red  = len(reduced_fit.result.params)
+    df_diff = k_full - k_red
 
     if df_diff <= 0:
         raise ValueError(
