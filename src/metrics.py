@@ -187,7 +187,7 @@ def pick_threshold_by_f1(
     _binary_guardrails(y_true, y_prob)
 
     if grid is None:
-        grid = np.linspace(0.05, 0.95, 19)
+        grid = np.linspace(0.01, 0.99, 99)
 
     rows = []
     best = {"threshold": None, "f1": -np.inf}
