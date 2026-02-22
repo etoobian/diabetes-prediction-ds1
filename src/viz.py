@@ -23,6 +23,36 @@ def set_plot_defaults():
     plt.rcParams["axes.grid"] = True
 
 
+def set_plot_defaults(
+    *,
+    figsize: tuple[float, float] = (7.0, 4.5),
+    grid: bool = True,
+    title_size: int = 14,
+    label_size: int = 12,
+    tick_size: int = 10,
+    legend_size: int = 10,
+    title_weight: str = "bold",
+    label_pad: int = 10,
+):
+    """
+    Set global matplotlib defaults used across the project.
+
+    Notes
+    -----
+    Individual plots may override defaults locally if needed.
+    """
+    plt.rcParams["figure.figsize"] = figsize
+    plt.rcParams["axes.grid"] = grid
+
+    plt.rcParams["axes.titlesize"] = title_size
+    plt.rcParams["axes.titleweight"] = title_weight
+    plt.rcParams["axes.labelsize"] = label_size
+    plt.rcParams["xtick.labelsize"] = tick_size
+    plt.rcParams["ytick.labelsize"] = tick_size
+    plt.rcParams["legend.fontsize"] = legend_size
+    plt.rcParams["axes.labelpad"] = label_pad
+
+
 def finalize_fig(fig, *, save_path: Path | None = None, show: bool = True, dpi: int = 300):
     """
     Save and/or show a matplotlib figure, then close it.
@@ -64,3 +94,5 @@ def plot_feature_importance_bar(
     fig.tight_layout()
     
     return fig, ax
+
+
