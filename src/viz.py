@@ -16,6 +16,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
+
+from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
 
 def set_plot_defaults(
     *,
@@ -90,3 +93,77 @@ def plot_feature_importance_bar(
     return fig, ax
 
 
+def plot_roc_curve(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    *,
+    title: str = "ROC Curve",
+):
+    """
+    Plot ROC curve and return (fig, ax).
+    """
+    y_true = np.asarray(y_true).reshape(-1)
+    y_proba = np.asarray(y_proba).reshape(-1)
+
+    fpr, tpr, _ = roc_curve(y_true, y_proba)
+    roc_auc = auc(fpr, tpr)
+
+    fig, ax = plt.subplots()
+    ax.plot(fpr, tpr, label=f"AUC = {roc_auc:.3f}")
+    ax.plot([0, 1], [0, 1], linestyle="--", label="Chance")
+    ax.set_xlabel("False Positive Rate (1 - Specificity)")
+    ax.set_ylabel("True Positive Rate (Sensitivity)")
+    ax.set_title(title)
+    ax.legend()
+    fig.tight_layout()
+    return fig, ax
+
+
+def plot_pr_curve(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    *,
+    title: str = "Precision-Recall Curve",
+):
+    """
+    Plot Precision-Recall curve and return (fig, ax).
+    """
+    y_true = np.asarray(y_true).reshape(-1)
+    y_proba = np.asarray(y_proba).reshape(-1)
+
+    precision, recall, _ = precision_recall_curve(y_true, y_proba)
+    ap = average_precision_score(y_true, y_proba)
+
+    fig, ax = plt.subplots()
+    ax.plot(recall, precision, label=f"AP = {ap:.3f}")
+    ax.set_xlabel("Recall (Sensitivity)")
+    ax.set_ylabel("Precision")
+    ax.set_title(title)
+    ax.legend()
+    fig.tight_layout()
+    return fig, ax
+
+
+def plot_calibration_curve_from_bins(
+    calib_df: pd.DataFrame,
+    *,
+    prob_col: str = "bin_mean_pred",
+    frac_col: str = "bin_frac_pos",
+    title: str = "Calibration Curve",
+):
+    """
+    Plot calibration curve from calibration_artifacts() output.
+
+    Expected columns (by default):
+      - bin_mean_pred
+      - bin_frac_pos
+    """
+    fig, ax = plt.subplots()
+    ax.plot(calib_df[prob_col], calib_df[frac_col], marker="o", label="Model")
+    ax.plot([0, 1], [0, 1], linestyle="--", label="Perfectly calibrated")
+    ax.set_xlabel("Mean predicted probability")
+    ax.set_ylabel("Observed fraction positive")
+    ax.set_title(title)
+    ax.legend()
+    fig.tight_layout()
+    return fig, ax
