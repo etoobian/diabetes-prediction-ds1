@@ -302,3 +302,51 @@ def compare_models_table(
     if sort_by in df.columns:
         df = df.sort_values(sort_by, ascending=not descending).reset_index(drop=True)
     return df
+
+
+def _quantile_summary(y_prob: np.ndarray) -> dict[str, float]:
+    y_prob = _to_1d_array(y_prob).astype(float)
+    _binary_guardrails(np.array([0, 1]), np.clip(y_prob, 0, 1))  # just range-check
+    return {
+        "min": float(np.min(y_prob)),
+        "p01": float(np.quantile(y_prob, 0.01)),
+        "median": float(np.median(y_prob)),
+        "p99": float(np.quantile(y_prob, 0.99)),
+        "max": float(np.max(y_prob)),
+        "pct_lt_0.01": float(np.mean(y_prob < 0.01)),
+        "pct_gt_0.99": float(np.mean(y_prob > 0.99)),
+    }
+
+
+def logit_diagnostics_table(
+    *,
+    fits: dict[str, Any],
+    p_train: dict[str, np.ndarray],
+) -> pd.DataFrame:
+    """
+    Train-only diagnostics for fitted logistic models.
+
+    fits: dict of model_name -> LogitMLEFit (or any object with `.result.mle_retvals`)
+    p_train: dict of model_name -> predicted probabilities on TRAIN
+
+    Returns a tidy table with convergence + probability spread diagnostics.
+    """
+    rows = []
+    for name, fit in fits.items():
+        probs = p_train[name]
+        summ = _quantile_summary(probs)
+
+        converged = None
+        if hasattr(fit, "result") and hasattr(fit.result, "mle_retvals"):
+            converged = fit.result.mle_retvals.get("converged", None)
+
+        rows.append(
+            {
+                "model": name,
+                "converged": converged,
+                **summ,
+            }
+        )
+
+    df = pd.DataFrame(rows).set_index("model").reset_index()
+    return df
