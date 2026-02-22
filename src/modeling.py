@@ -56,6 +56,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
 
+from statsmodels.tools.sm_exceptions import PerfectSeparationError
+
 import statsmodels.api as sm
 from scipy.stats import chi2
 
@@ -107,14 +109,19 @@ def _build_preprocessor(
     )
 
 
-def _get_feature_names(pre: ColumnTransformer, categorical_cols: list[str], numeric_cols: list[str]) -> list[str]:
-    """
-    Return the expanded feature names from a fitted preprocessor.
+def _get_feature_names(
+    pre: ColumnTransformer,
+    categorical_cols: list[str],
+    numeric_cols: list[str],
+) -> list[str]:
+    """Return expanded feature names from a fitted preprocessor (robust to empty cats)."""
+    cat_feature_names: list[str] = []
 
-    This assumes the categorical transformer is named "cat".
-    """
-    ohe = pre.named_transformers_["cat"]
-    cat_feature_names = ohe.get_feature_names_out(categorical_cols).tolist()
+    if categorical_cols:
+        ohe = pre.named_transformers_.get("cat", None)
+        if ohe is not None:
+            cat_feature_names = ohe.get_feature_names_out(categorical_cols).tolist()
+
     return cat_feature_names + list(numeric_cols)
 
 
@@ -150,24 +157,18 @@ def _encoded_mask_for_original_predictors(
         Boolean mask aligned with encoded_feature_names.
     """
     keep_set = set(keep_predictors)
-    cat_prefixes = {cat: f"{cat}_" for cat in categorical_cols}
+    cat_prefixes = tuple(f"{cat}_" for cat in categorical_cols)
 
     mask_list: list[bool] = []
     for fn in encoded_feature_names:
-        kept = False
+        is_cat = fn.startswith(cat_prefixes)
 
-        # If encoded name belongs to a categorical (prefix match), keep if that categorical is kept
-        for cat, prefix in cat_prefixes.items():
-            if fn.startswith(prefix):
-                kept = (cat in keep_set)
-                break
-
-        # Otherwise it is numeric/binary passthrough: keep if exact predictor name is kept
-        if not any(fn.startswith(prefix) for prefix in cat_prefixes.values()):
-            kept = (fn in keep_set)
-
-        mask_list.append(kept)
-
+        if is_cat:
+            cat = fn.split("_", 1)[0]
+            mask_list.append(cat in keep_set)
+        else:
+            mask_list.append(fn in keep_set)
+    
     return np.array(mask_list, dtype=bool)
 
 
@@ -343,7 +344,15 @@ def fit_logit_mle(
         X_use = sm.add_constant(X_use, has_constant="add")
 
     model = sm.Logit(y, X_use)
-    result = model.fit(disp=disp, maxiter=maxiter)
+    try:
+        result = model.fit(disp=disp, maxiter=maxiter)
+    except PerfectSeparationError as e:
+        raise RuntimeError(
+            "Perfect separation detected in Logit MLE. "
+            "This can happen when predictors (e.g., HbA1c) almost perfectly split the classes. "
+            "For prediction/comparison, use a regularized sklearn LogisticRegression pipeline; "
+            "for inference, report separation and avoid p-value interpretation."
+        ) from e
 
     return LogitMLEFit(
         result=result,
@@ -392,7 +401,15 @@ def fit_logit_mle_reduced_from_full(
         X_use = sm.add_constant(X_use, has_constant="add")
 
     model = sm.Logit(y, X_use)
-    result = model.fit(disp=disp, maxiter=maxiter)
+    try:
+        result = model.fit(disp=disp, maxiter=maxiter)
+    except PerfectSeparationError as e:
+        raise RuntimeError(
+            "Perfect separation detected in Logit MLE. "
+            "This can happen when predictors (e.g., HbA1c) almost perfectly split the classes. "
+            "For prediction/comparison, use a regularized sklearn LogisticRegression pipeline; "
+            "for inference, report separation and avoid p-value interpretation."
+        ) from e
 
     return LogitMLEFit(
         result=result,
