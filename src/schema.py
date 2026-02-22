@@ -84,6 +84,54 @@ REF_ALLOWED_CATEGORIES: Dict[str, List[str]] = {
     #"diabetes_stage": ["No Diabetes", "Pre-Diabetes", "Type 1", "Type 2", "Gestational"],
 }
 
+total_columns = [
+    "gender",
+    "ethnicity",
+    "education_level",
+    "income_level",
+    "employment_status",
+    "smoking_status",
+    "diabetes_stage",
+    "family_history_diabetes",
+    "hypertension_history",
+    "cardiovascular_history",
+    "age",
+    "alcohol_consumption_per_week",
+    "physical_activity_minutes_per_week",
+    "diet_score",
+    "sleep_hours_per_day",
+    "screen_time_hours_per_day",
+    "bmi",
+    "waist_to_hip_ratio",
+    "systolic_bp",
+    "diastolic_bp",
+    "heart_rate",
+    "cholesterol_total",
+    "hdl_cholesterol",
+    "ldl_cholesterol",
+    "triglycerides",
+    "glucose_fasting",
+    "glucose_postprandial",
+    "insulin_level",
+    "hba1c",
+]
+
+ALL_CATEGORICAL: List[str] = [
+    # Multi-class categorical
+    "gender",
+    "ethnicity",
+    "education_level",
+    "income_level",
+    "employment_status",
+    "smoking_status",
+    # Binary categorical
+    "family_history_diabetes",
+    "hypertension_history",
+    "cardiovascular_history",
+]
+
+
+
 REF_RANGE_RULES: Dict[str, Tuple[float, float]] = {
     "age": (18, 90),
     "alcohol_consumption_per_week": (0, 30),
