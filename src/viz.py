@@ -119,6 +119,52 @@ def plot_roc_curve(
     return fig, ax
 
 
+def plot_multiple_roc_curves(
+    y_true: np.ndarray,
+    model_probas: dict[str, np.ndarray],
+    *,
+    title: str = "ROC Curves",
+):
+    """
+    Plot multiple ROC curves on the same axes.
+
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels (0/1).
+    model_probas : dict
+        Mapping {model_name: predicted_probabilities}.
+    title : str
+        Plot title.
+
+    Returns
+    -------
+    (fig, ax)
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from sklearn.metrics import roc_curve, auc
+
+    y_true = np.asarray(y_true).reshape(-1)
+
+    fig, ax = plt.subplots()
+
+    for name, y_proba in model_probas.items():
+        y_proba = np.asarray(y_proba).reshape(-1)
+        fpr, tpr, _ = roc_curve(y_true, y_proba)
+        roc_auc = auc(fpr, tpr)
+        ax.plot(fpr, tpr, label=f"{name} (AUC={roc_auc:.3f})")
+
+    ax.plot([0, 1], [0, 1], linestyle="--", label="Chance")
+    ax.set_xlabel("False Positive Rate (1 - Specificity)")
+    ax.set_ylabel("True Positive Rate (Sensitivity)")
+    ax.set_title(title)
+    ax.legend()
+    fig.tight_layout()
+
+    return fig, ax
+
+
 def plot_pr_curve(
     y_true: np.ndarray,
     y_proba: np.ndarray,
@@ -144,6 +190,51 @@ def plot_pr_curve(
     return fig, ax
 
 
+def plot_multiple_pr_curves(
+    y_true: np.ndarray,
+    model_probas: dict[str, np.ndarray],
+    *,
+    title: str = "Precision–Recall Curves",
+):
+    """
+    Plot multiple Precision-Recall curves on the same axes.
+
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels (0/1).
+    model_probas : dict
+        Mapping {model_name: predicted_probabilities}.
+    title : str
+        Plot title.
+
+    Returns
+    -------
+    (fig, ax)
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from sklearn.metrics import precision_recall_curve, average_precision_score
+
+    y_true = np.asarray(y_true).reshape(-1)
+
+    fig, ax = plt.subplots()
+
+    for name, y_proba in model_probas.items():
+        y_proba = np.asarray(y_proba).reshape(-1)
+        precision, recall, _ = precision_recall_curve(y_true, y_proba)
+        ap = average_precision_score(y_true, y_proba)
+        ax.plot(recall, precision, label=f"{name} (AP={ap:.3f})")
+
+    ax.set_xlabel("Recall (Sensitivity)")
+    ax.set_ylabel("Precision")
+    ax.set_title(title)
+    ax.legend()
+    fig.tight_layout()
+
+    return fig, ax
+
+
 def plot_calibration_curve_from_bins(
     calib_df: pd.DataFrame,
     *,
@@ -166,6 +257,41 @@ def plot_calibration_curve_from_bins(
     ax.set_title(title)
     ax.legend()
     fig.tight_layout()
+    return fig, ax
+
+
+def plot_multiple_calibration_curves(
+    y_true: np.ndarray,
+    model_probas: dict[str, np.ndarray],
+    *,
+    n_bins: int = 10,
+    strategy: str = "uniform",
+    title: str = "Calibration Curves",
+):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from sklearn.calibration import calibration_curve
+
+    y_true = np.asarray(y_true).reshape(-1)
+
+    fig, ax = plt.subplots()
+
+    for name, y_proba in model_probas.items():
+        y_proba = np.asarray(y_proba).reshape(-1)
+        frac_pos, mean_pred = calibration_curve(
+            y_true, y_proba,
+            n_bins=n_bins,
+            strategy=strategy,
+        )
+        ax.plot(mean_pred, frac_pos, marker="o", label=name)
+
+    ax.plot([0, 1], [0, 1], linestyle="--", label="Perfectly calibrated")
+    ax.set_xlabel("Mean predicted probability")
+    ax.set_ylabel("Observed fraction positive")
+    ax.set_title(title)
+    ax.legend()
+    fig.tight_layout()
+
     return fig, ax
 
 
