@@ -89,6 +89,14 @@ def compute_classification_metrics(
     y_prob = _to_1d_array(y_prob).astype(float)
     _binary_guardrails(y_true, y_prob)
 
+    if pos_label != 1:
+        raise ValueError(
+            "This project assumes positive class label is 1."
+        )
+    
+    eps = 1e-15
+    y_prob = np.clip(y_prob, eps, 1 - eps)
+
     y_pred = threshold_predictions(y_prob, threshold=float(threshold))
 
     # Confusion matrix in standard order: [[TN, FP],[FN, TP]]
@@ -158,6 +166,42 @@ def metrics_to_frame(results: Dict[str, Dict[str, Any]]) -> pd.DataFrame:
     df.index.name = "model"
     return df
 
+METRICS_COMPACT_COLS = [
+    "threshold",
+    "roc_auc", "pr_auc",
+    "log_loss", "brier",
+    "accuracy", "precision", "recall", "f1",
+]
+
+def compact_metrics_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a compact metrics table (keeps model + key metrics; drops cm entries)."""
+    cols = ["model"] + [c for c in METRICS_COMPACT_COLS if c in df.columns]
+    return df[cols].copy()
+
+
+def stack_threshold_method_results(
+    *,
+    df_youden_full: pd.DataFrame,
+    df_f1_full: pd.DataFrame,
+    method_labels: tuple[str, str] = ("youden", "f1"),
+) -> pd.DataFrame:
+    """
+    Stack two metric frames (full, including tn/fp/fn/tp) into long format:
+    columns: model, method, threshold, roc_auc, ..., tn, fp, fn, tp
+    """
+    a = df_youden_full.copy()
+    a["method"] = method_labels[0]
+    b = df_f1_full.copy()
+    b["method"] = method_labels[1]
+
+    out = pd.concat([a, b], axis=0, ignore_index=True)
+
+    # nice ordering (method right after model)
+    front = ["model", "method"]
+    rest = [c for c in out.columns if c not in front]
+    return out[front + rest]
+
+
 
 def pick_threshold_by_f1(
     y_true,
@@ -179,7 +223,7 @@ def pick_threshold_by_f1(
     _binary_guardrails(y_true, y_prob)
 
     if grid is None:
-        grid = np.linspace(0.05, 0.95, 19)
+        grid = np.linspace(0.01, 0.99, 9)
 
     rows = []
     best = {"threshold": None, "f1": -np.inf}
@@ -193,3 +237,152 @@ def pick_threshold_by_f1(
 
     diag = pd.DataFrame(rows).sort_values("threshold").reset_index(drop=True)
     return {"best_threshold": best["threshold"], "best_f1": best["f1"], "diagnostic": diag}
+
+
+def pick_threshold_by_youden_j(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+) -> dict[str, float]:
+    """
+    Pick a probability threshold using Youden's J statistic on the ROC curve.
+
+    Youden's J = TPR - FPR = sensitivity + specificity - 1.
+
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        True binary labels in {0,1}.
+    y_prob : array-like of shape (n_samples,)
+        Predicted probabilities for the positive class.
+
+    Returns
+    -------
+    dict with:
+        - best_threshold
+        - best_j
+        - best_tpr
+        - best_fpr
+        - best_specificity
+    """
+    from sklearn.metrics import roc_curve
+
+    y_true = _to_1d_array(y_true)
+    y_prob = _to_1d_array(y_prob)
+    _binary_guardrails(y_true, y_prob)
+
+    fpr, tpr, thr = roc_curve(y_true, y_prob)
+
+    # roc_curve may include an initial threshold of inf; exclude it.
+    mask = np.isfinite(thr)
+    fpr = fpr[mask]
+    tpr = tpr[mask]
+    thr = thr[mask]
+
+    j = tpr - fpr
+    idx = int(np.argmax(j))
+
+    best_thr = float(thr[idx])
+    best_tpr = float(tpr[idx])
+    best_fpr = float(fpr[idx])
+    best_j = float(j[idx])
+
+    return {
+        "best_threshold": best_thr,
+        "best_j": best_j,
+        "best_tpr": best_tpr,
+        "best_fpr": best_fpr,
+        "best_specificity": float(1.0 - best_fpr),
+    }
+
+
+def pick_threshold(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    *,
+    method: str = "youden",
+) -> dict[str, float]:
+    """
+    Convenience wrapper to pick a threshold.
+
+    method:
+      - "youden" -> pick_threshold_by_youden_j
+      - "f1"     -> pick_threshold_by_f1
+    """
+    method = method.lower().strip()
+    if method == "youden":
+        return pick_threshold_by_youden_j(y_true, y_prob)
+    if method == "f1":
+        return pick_threshold_by_f1(y_true, y_prob)
+    raise ValueError(f"Unknown method={method!r}. Use 'youden' or 'f1'.")
+
+
+def compare_models_table(
+    results: dict[str, dict[str, float]],
+    *,
+    sort_by: str = "f1",
+    descending: bool = True,
+) -> pd.DataFrame:
+    """
+    Build a comparison table from model-name -> metrics dict.
+
+    Intended for reuse across Logistic Regression / RF / Boosting / MLP sections.
+
+    Parameters
+    ----------
+    results : dict
+        Mapping model_name -> metrics dict (e.g., output of compute_classification_metrics).
+    sort_by : str
+        Column to sort by if present.
+    """
+    df = pd.DataFrame(results).T.reset_index().rename(columns={"index": "model"})
+    if sort_by in df.columns:
+        df = df.sort_values(sort_by, ascending=not descending).reset_index(drop=True)
+    return df
+
+
+def _quantile_summary(y_prob: np.ndarray) -> dict[str, float]:
+    y_prob = _to_1d_array(y_prob).astype(float)
+    _binary_guardrails(np.array([0, 1]), np.clip(y_prob, 0, 1))  # just range-check
+    return {
+        "min": float(np.min(y_prob)),
+        "p01": float(np.quantile(y_prob, 0.01)),
+        "median": float(np.median(y_prob)),
+        "p99": float(np.quantile(y_prob, 0.99)),
+        "max": float(np.max(y_prob)),
+        "pct_lt_0.01": float(np.mean(y_prob < 0.01)),
+        "pct_gt_0.99": float(np.mean(y_prob > 0.99)),
+    }
+
+
+def logit_diagnostics_table(
+    *,
+    fits: dict[str, Any],
+    p_train: dict[str, np.ndarray],
+) -> pd.DataFrame:
+    """
+    Train-only diagnostics for fitted logistic models.
+
+    fits: dict of model_name -> LogitMLEFit (or any object with `.result.mle_retvals`)
+    p_train: dict of model_name -> predicted probabilities on TRAIN
+
+    Returns a tidy table with convergence + probability spread diagnostics.
+    """
+    rows = []
+    for name, fit in fits.items():
+        probs = p_train[name]
+        summ = _quantile_summary(probs)
+
+        converged = None
+        if hasattr(fit, "result") and hasattr(fit.result, "mle_retvals"):
+            converged = fit.result.mle_retvals.get("converged", None)
+
+        rows.append(
+            {
+                "model": name,
+                "converged": converged,
+                **summ,
+            }
+        )
+
+    df = pd.DataFrame(rows).set_index("model").reset_index()
+    return df

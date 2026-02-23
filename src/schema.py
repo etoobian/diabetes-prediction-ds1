@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
+import pandas as pd
+
 # -------- CORE COLUMNS --------
 TARGET_COL: str = "diagnosed_diabetes"
 
@@ -142,3 +144,23 @@ RANGE_RULES.update(
         "glucose_postprandial": (70, 350),
     }
 )
+
+
+# HELPER FUNCTIONS
+
+def cols_present(
+    df: pd.DataFrame,
+    *,
+    target_col: str = TARGET_COL,
+) -> tuple[list[str], list[str]]:
+    """
+    Return (categorical_cols, numeric_cols) restricted to columns present in df.
+
+    numeric_cols includes NUMERIC_COLS plus binary predictors (BINARY_COLS excluding target).
+    """
+    cat_cols = [c for c in CATEGORICAL_COLS if c in df.columns]
+    num_cols = [
+        c for c in (NUMERIC_COLS + [c for c in BINARY_COLS if c != target_col])
+        if c in df.columns
+    ]
+    return cat_cols, num_cols

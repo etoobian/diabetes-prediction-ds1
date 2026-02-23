@@ -56,6 +56,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
 
+from statsmodels.tools.sm_exceptions import PerfectSeparationError
+
 import statsmodels.api as sm
 from scipy.stats import chi2
 
@@ -107,14 +109,19 @@ def _build_preprocessor(
     )
 
 
-def _get_feature_names(pre: ColumnTransformer, categorical_cols: list[str], numeric_cols: list[str]) -> list[str]:
-    """
-    Return the expanded feature names from a fitted preprocessor.
+def _get_feature_names(
+    pre: ColumnTransformer,
+    categorical_cols: list[str],
+    numeric_cols: list[str],
+) -> list[str]:
+    """Return expanded feature names from a fitted preprocessor (robust to empty cats)."""
+    cat_feature_names: list[str] = []
 
-    This assumes the categorical transformer is named "cat".
-    """
-    ohe = pre.named_transformers_["cat"]
-    cat_feature_names = ohe.get_feature_names_out(categorical_cols).tolist()
+    if categorical_cols:
+        ohe = pre.named_transformers_.get("cat", None)
+        if ohe is not None:
+            cat_feature_names = ohe.get_feature_names_out(categorical_cols).tolist()
+
     return cat_feature_names + list(numeric_cols)
 
 
@@ -150,24 +157,18 @@ def _encoded_mask_for_original_predictors(
         Boolean mask aligned with encoded_feature_names.
     """
     keep_set = set(keep_predictors)
-    cat_prefixes = {cat: f"{cat}_" for cat in categorical_cols}
+    cat_prefixes = tuple(f"{cat}_" for cat in categorical_cols)
 
     mask_list: list[bool] = []
     for fn in encoded_feature_names:
-        kept = False
+        is_cat = fn.startswith(cat_prefixes)
 
-        # If encoded name belongs to a categorical (prefix match), keep if that categorical is kept
-        for cat, prefix in cat_prefixes.items():
-            if fn.startswith(prefix):
-                kept = (cat in keep_set)
-                break
-
-        # Otherwise it is numeric/binary passthrough: keep if exact predictor name is kept
-        if not any(fn.startswith(prefix) for prefix in cat_prefixes.values()):
-            kept = (fn in keep_set)
-
-        mask_list.append(kept)
-
+        if is_cat:
+            cat = fn.split("_", 1)[0]
+            mask_list.append(cat in keep_set)
+        else:
+            mask_list.append(fn in keep_set)
+    
     return np.array(mask_list, dtype=bool)
 
 
@@ -343,7 +344,15 @@ def fit_logit_mle(
         X_use = sm.add_constant(X_use, has_constant="add")
 
     model = sm.Logit(y, X_use)
-    result = model.fit(disp=disp, maxiter=maxiter)
+    try:
+        result = model.fit(disp=disp, maxiter=maxiter)
+    except PerfectSeparationError as e:
+        raise RuntimeError(
+            "Perfect separation detected in Logit MLE. "
+            "This can happen when predictors (e.g., HbA1c) almost perfectly split the classes. "
+            "For prediction/comparison, use a regularized sklearn LogisticRegression pipeline; "
+            "for inference, report separation and avoid p-value interpretation."
+        ) from e
 
     return LogitMLEFit(
         result=result,
@@ -392,11 +401,19 @@ def fit_logit_mle_reduced_from_full(
         X_use = sm.add_constant(X_use, has_constant="add")
 
     model = sm.Logit(y, X_use)
-    result = model.fit(disp=disp, maxiter=maxiter)
+    try:
+        result = model.fit(disp=disp, maxiter=maxiter)
+    except PerfectSeparationError as e:
+        raise RuntimeError(
+            "Perfect separation detected in Logit MLE. "
+            "This can happen when predictors (e.g., HbA1c) almost perfectly split the classes. "
+            "For prediction/comparison, use a regularized sklearn LogisticRegression pipeline; "
+            "for inference, report separation and avoid p-value interpretation."
+        ) from e
 
     return LogitMLEFit(
         result=result,
-        preprocessor=full_fit.preprocessor,  # reuse same fitted encoder
+        preprocessor=full_fit.preprocessor, 
         feature_names=full_fit.feature_names,
         categorical_cols=full_fit.categorical_cols,
         numeric_cols=full_fit.numeric_cols,
@@ -417,6 +434,56 @@ def predict_proba_logit_mle(fit: LogitMLEFit, df: pd.DataFrame) -> np.ndarray:
         X = sm.add_constant(X, has_constant="add")
 
     return np.asarray(fit.result.predict(X)).reshape(-1)
+
+
+def logit_coef_table(
+    fit: LogitMLEFit,
+    *,
+    include_intercept: bool = True,
+    conf_level: float = 0.95,
+    exponentiate: bool = False,
+) -> pd.DataFrame:
+    """
+    Tidy coefficient table for statsmodels Logit MLE fit.
+
+    Returns columns:
+      term, coef, std_err, z, p_value, ci_low, ci_high
+    Optionally adds odds_ratio and OR CIs.
+    """
+    res = fit.result
+
+    names = list(fit.feature_names)
+    if fit.col_mask is not None:
+        names = [n for n, keep in zip(names, fit.col_mask) if keep]
+    if fit.add_intercept:
+        names = ["const"] + names
+
+    alpha = 1.0 - float(conf_level)
+    ci = res.conf_int(alpha=alpha)
+    ci = pd.DataFrame(ci, columns=["ci_low", "ci_high"])
+    ci.index = names
+
+    out = pd.DataFrame(
+        {
+            "term": names,
+            "coef": pd.Series(res.params, index=names).values,
+            "std_err": pd.Series(res.bse, index=names).values,
+            "z": pd.Series(res.tvalues, index=names).values,
+            "p_value": pd.Series(res.pvalues, index=names).values,
+            "ci_low": ci["ci_low"].values,
+            "ci_high": ci["ci_high"].values,
+        }
+    )
+
+    if not include_intercept:
+        out = out[out["term"] != "const"].reset_index(drop=True)
+
+    if exponentiate:
+        out["odds_ratio"] = np.exp(out["coef"])
+        out["or_ci_low"] = np.exp(out["ci_low"])
+        out["or_ci_high"] = np.exp(out["ci_high"])
+
+    return out.reset_index(drop=True)
 
 
 def lrt_compare_nested(full_fit: LogitMLEFit, reduced_fit: LogitMLEFit) -> dict[str, float]:
@@ -446,10 +513,9 @@ def lrt_compare_nested(full_fit: LogitMLEFit, reduced_fit: LogitMLEFit) -> dict[
     llf_full = float(full_fit.result.llf)
     llf_red = float(reduced_fit.result.llf)
 
-    # statsmodels: df_model counts parameters excluding intercept (but consistent for diff)
-    df_full = int(full_fit.result.df_model)
-    df_red = int(reduced_fit.result.df_model)
-    df_diff = df_full - df_red
+    k_full = len(full_fit.result.params)
+    k_red  = len(reduced_fit.result.params)
+    df_diff = k_full - k_red
 
     if df_diff <= 0:
         raise ValueError(

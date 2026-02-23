@@ -1,0 +1,16 @@
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+model & best_threshold & best_j & best_tpr & best_fpr & best_specificity \\
+\midrule
+ALL & 0.6773 & 0.8145 & 0.8425 & 0.0280 & 0.9720 \\
+HbA1c & 0.6915 & 0.8511 & 0.8511 & 0.0000 & 1.0000 \\
+non-HbA1c & 0.6103 & 0.2309 & 0.5300 & 0.2991 & 0.7009 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{-5pt}
+\caption{Train-only classification thresholds for logistic regression variants using Youden's J on the ROC curve.}
+\label{tab:logit_thresholds_youden_train}
+\end{table}

@@ -11,7 +11,7 @@ Also provides ensure_dirs() to create output directories as needed.
 
 from pathlib import Path
 
-# Project root: diabetes-predicton-ds1/
+# Project root: diabetes-prediction-ds1/
 ROOT = Path(__file__).resolve().parents[1]
 
 DATA_RAW_DIR = ROOT / "data" / "raw"
