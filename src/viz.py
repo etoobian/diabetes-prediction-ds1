@@ -167,3 +167,66 @@ def plot_calibration_curve_from_bins(
     ax.legend()
     fig.tight_layout()
     return fig, ax
+
+
+def plot_confusion_matrix_binary(
+    tn: int, fp: int, fn: int, tp: int,
+    *,
+    title: str | None = None,
+    normalize: bool = False,
+    cmap: str = "Blues",
+    vmax_scale: float = 1.0,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    show_colorbar: bool = True,
+    annot_fontsize: int = 11,
+):
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    cm = np.array([[tn, fp],
+                   [fn, tp]], dtype=float)
+
+    if normalize:
+        row_sums = cm.sum(axis=1, keepdims=True)
+        row_sums[row_sums == 0] = 1.0
+        cm_plot = cm / row_sums
+    else:
+        cm_plot = cm
+
+    # Defaults for color scaling
+    if vmin is None:
+        vmin = 0.0
+
+    if vmax is None:
+        vmax = float(cm_plot.max()) * float(vmax_scale)
+
+        if normalize:
+            vmax = 1.0 * float(vmax_scale)
+
+    fig, ax = plt.subplots(figsize=(4, 4))
+    im = ax.imshow(cm_plot, cmap=cmap, vmin=vmin, vmax=vmax)
+
+    # Annotate
+    for (i, j), val in np.ndenumerate(cm_plot):
+        if normalize:
+            text = f"{val:.3f}\n({int(cm[i, j])})"
+        else:
+            text = f"{int(val)}"
+        ax.text(j, i, text, ha="center", va="center", fontsize=annot_fontsize)
+
+    ax.set_xticks([0, 1])
+    ax.set_yticks([0, 1])
+    ax.set_xticklabels(["Pred 0", "Pred 1"])
+    ax.set_yticklabels(["True 0", "True 1"])
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("True")
+
+    if title:
+        ax.set_title(title)
+
+    if show_colorbar:
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    fig.tight_layout()
+    return fig, ax
