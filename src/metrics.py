@@ -166,6 +166,42 @@ def metrics_to_frame(results: Dict[str, Dict[str, Any]]) -> pd.DataFrame:
     df.index.name = "model"
     return df
 
+METRICS_COMPACT_COLS = [
+    "threshold",
+    "roc_auc", "pr_auc",
+    "log_loss", "brier",
+    "accuracy", "precision", "recall", "f1",
+]
+
+def compact_metrics_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a compact metrics table (keeps model + key metrics; drops cm entries)."""
+    cols = ["model"] + [c for c in METRICS_COMPACT_COLS if c in df.columns]
+    return df[cols].copy()
+
+
+def stack_threshold_method_results(
+    *,
+    df_youden_full: pd.DataFrame,
+    df_f1_full: pd.DataFrame,
+    method_labels: tuple[str, str] = ("youden", "f1"),
+) -> pd.DataFrame:
+    """
+    Stack two metric frames (full, including tn/fp/fn/tp) into long format:
+    columns: model, method, threshold, roc_auc, ..., tn, fp, fn, tp
+    """
+    a = df_youden_full.copy()
+    a["method"] = method_labels[0]
+    b = df_f1_full.copy()
+    b["method"] = method_labels[1]
+
+    out = pd.concat([a, b], axis=0, ignore_index=True)
+
+    # nice ordering (method right after model)
+    front = ["model", "method"]
+    rest = [c for c in out.columns if c not in front]
+    return out[front + rest]
+
+
 
 def pick_threshold_by_f1(
     y_true,
@@ -187,7 +223,7 @@ def pick_threshold_by_f1(
     _binary_guardrails(y_true, y_prob)
 
     if grid is None:
-        grid = np.linspace(0.01, 0.99, 99)
+        grid = np.linspace(0.01, 0.99, 9)
 
     rows = []
     best = {"threshold": None, "f1": -np.inf}
