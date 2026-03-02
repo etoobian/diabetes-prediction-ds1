@@ -1,0 +1,16 @@
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+model & best_threshold & best_j & best_tpr & best_fpr & best_specificity \\
+\midrule
+ALL & 0.4166 & 0.8521 & 0.8552 & 0.0031 & 0.9969 \\
+HbA1c & 1.0000 & 0.8511 & 0.8511 & 0.0000 & 1.0000 \\
+non-HbA1c & 0.6015 & 0.2495 & 0.5650 & 0.3155 & 0.6845 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{-5pt}
+\caption{Train-only classification thresholds for XGBoost variants using Youden's J on the ROC curve.}
+\label{tab:xgb_thresholds_youden_train}
+\end{table}
