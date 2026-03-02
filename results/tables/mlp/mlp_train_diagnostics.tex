@@ -1,0 +1,16 @@
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{lrrrrrrr}
+\toprule
+model & min & p01 & median & p99 & max & pct_lt_0.01 & pct_gt_0.99 \\
+\midrule
+ALL & 0.0360 & 0.0793 & 0.6502 & 1.0000 & 1.0000 & 0.0000 & 0.4034 \\
+HbA1c & 0.0993 & 0.1053 & 0.9245 & 1.0000 & 1.0000 & 0.0000 & 0.4714 \\
+non-HbA1c & 0.1983 & 0.3320 & 0.6095 & 0.9011 & 0.9613 & 0.0000 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{-5pt}
+\caption{MLP training diagnostics: predicted-probability spread (train only).}
+\label{tab:mlp_train_diagnostics}
+\end{table}
