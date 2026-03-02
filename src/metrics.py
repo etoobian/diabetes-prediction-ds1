@@ -354,35 +354,40 @@ def _quantile_summary(y_prob: np.ndarray) -> dict[str, float]:
     }
 
 
-def logit_diagnostics_table(
+def train_prob_diagnostics_table(
     *,
-    fits: dict[str, Any],
     p_train: dict[str, np.ndarray],
+    fits: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """
-    Train-only diagnostics for fitted logistic models.
+    Train-only diagnostics for probabilistic models.
 
-    fits: dict of model_name -> LogitMLEFit (or any object with `.result.mle_retvals`)
-    p_train: dict of model_name -> predicted probabilities on TRAIN
+    Parameters
+    ----------
+    p_train:
+        dict of model_name -> predicted probabilities on TRAIN.
+    fits:
+        Optional dict of model_name -> fitted model object. If provided, we attempt
+        to extract a `converged` flag when available (e.g., statsmodels Logit MLE).
 
-    Returns a tidy table with convergence + probability spread diagnostics.
+    Returns
+    -------
+    pd.DataFrame with probability spread diagnostics and (optionally) convergence.
     """
     rows = []
-    for name, fit in fits.items():
-        probs = p_train[name]
+    for name, probs in p_train.items():
         summ = _quantile_summary(probs)
 
-        converged = None
-        if hasattr(fit, "result") and hasattr(fit.result, "mle_retvals"):
-            converged = fit.result.mle_retvals.get("converged", None)
+        row = {"model": name, **summ}
 
-        rows.append(
-            {
-                "model": name,
-                "converged": converged,
-                **summ,
-            }
-        )
+        if fits is not None and name in fits:
+            fit = fits[name]
+            converged = None
+            if hasattr(fit, "result") and hasattr(fit.result, "mle_retvals"):
+                converged = fit.result.mle_retvals.get("converged", None)
+            row["converged"] = converged
+
+        rows.append(row)
 
     df = pd.DataFrame(rows).set_index("model").reset_index()
     return df

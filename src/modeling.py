@@ -55,6 +55,8 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.neural_network import MLPClassifier
 
 from statsmodels.tools.sm_exceptions import PerfectSeparationError
 
@@ -63,7 +65,7 @@ from scipy.stats import chi2
 
 
 # =============================================================================
-# 0) Shared preprocessing helpers (private)
+# Shared Preprocessing Helpers (private)
 # =============================================================================
 
 def _build_preprocessor(
@@ -174,7 +176,7 @@ def _encoded_mask_for_original_predictors(
 
 
 # =============================================================================
-# A) Random Forest feature screening (sklearn)
+# Random Forest Feature Screening (sklearn)
 # =============================================================================
 
 def fit_rf_feature_screening(
@@ -283,7 +285,7 @@ def aggregate_importance_by_feature(
 
 
 # =============================================================================
-# B) Logistic regression (statsmodels MLE) + nested comparison (LRT)
+# Logistic Regression (statsmodels MLE) + Nested Comparison (LRT)
 # =============================================================================
 
 @dataclass
@@ -540,39 +542,196 @@ def lrt_compare_nested(full_fit: LogitMLEFit, reduced_fit: LogitMLEFit) -> dict[
 
 
 # =============================================================================
-# C) Random Forest — Final Predictive Classifier (Planned)
+# Gradient Boosting (XGBoost)
 # =============================================================================
-# Planned functions:
-# - fit_rf_classifier(...)
-# - predict_proba_rf(...)
-# - optional: extract_feature_importance_rf(...)
-#
-# Notes:
-# - This is distinct from RF feature screening above.
-# - Will be used for predictive performance comparison across models.
+
+@dataclass
+class XGBFit:
+    """
+    Container for an XGBoost fit plus preprocessing design.
+
+    Attributes
+    ----------
+    pipe:
+        sklearn Pipeline(preprocess -> xgb)
+    preprocessor:
+        fitted ColumnTransformer used to build the design matrix
+    feature_names:
+        encoded feature names (OHE + numeric)
+    categorical_cols, numeric_cols:
+        original predictor columns
+    """
+    pipe: Pipeline
+    preprocessor: ColumnTransformer
+    feature_names: list[str]
+    categorical_cols: list[str]
+    numeric_cols: list[str]
 
 
-# =============================================================================
-# D) Gradient Boosting (e.g., XGBoost / HistGradientBoosting) — Planned
-# =============================================================================
-# Planned functions:
-# - fit_boosting_classifier(...)
-# - predict_proba_boosting(...)
-# - optional: feature importance or SHAP utilities
-#
-# Notes:
-# - Sequential tree boosting (bias reduction).
-# - Will optimize log-loss unless otherwise specified.
+def fit_xgb_classifier(
+    df: pd.DataFrame,
+    *,
+    target_col: str,
+    categorical_cols: list[str],
+    numeric_cols: list[str],
+    random_state: int = 587,
+    n_estimators: int = 400,
+    max_depth: int = 3,
+    learning_rate: float = 0.05,
+    subsample: float = 0.8,
+    colsample_bytree: float = 0.8,
+    reg_lambda: float = 1.0,
+    n_jobs: int = -1,
+) -> XGBFit:
+    """
+    Fit an XGBoost classifier with the project-standard preprocessing pipeline.
+
+    Notes
+    -----
+    - Uses one-hot encoding for categorical variables.
+    - Keeps all one-hot levels (drop_first=False), which is fine for tree models.
+    - Hyperparameters are set to reasonable defaults (no tuning here).
+    """
+    X_df = df[categorical_cols + numeric_cols].copy()
+    y = df[target_col].astype(int).to_numpy()
+
+    pre = _build_preprocessor(categorical_cols, numeric_cols, drop_first=False)
+
+    xgb = XGBClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        learning_rate=learning_rate,
+        subsample=subsample,
+        colsample_bytree=colsample_bytree,
+        reg_lambda=reg_lambda,
+        objective="binary:logistic",
+        eval_metric="logloss",
+        random_state=random_state,
+        n_jobs=n_jobs,
+    )
+
+    pipe = Pipeline(steps=[("preprocess", pre), ("xgb", xgb)])
+    pipe.fit(X_df, y)
+
+    feature_names = _get_feature_names(pre, categorical_cols, numeric_cols)
+
+    return XGBFit(
+        pipe=pipe,
+        preprocessor=pre,
+        feature_names=feature_names,
+        categorical_cols=categorical_cols,
+        numeric_cols=numeric_cols,
+    )
 
 
+def predict_proba_xgb(fit: XGBFit, df: pd.DataFrame) -> np.ndarray:
+    """
+    Predict probabilities P(y=1) using a fitted XGBFit on new data.
+    """
+    X_df = df[fit.categorical_cols + fit.numeric_cols].copy()
+    p = fit.pipe.predict_proba(X_df)[:, 1]
+    return np.asarray(p).reshape(-1)
+
+
+def xgb_importance_table(fit: XGBFit) -> pd.DataFrame:
+    """
+    Return a tidy feature importance table from the fitted XGBoost model.
+
+    Notes
+    -----
+    Uses gain-based importance when available via feature_importances_.
+    Feature names align with the preprocessor-expanded design matrix.
+    """
+    model: XGBClassifier = fit.pipe.named_steps["xgb"]
+    imps = np.asarray(model.feature_importances_, dtype=float)
+
+    df_imp = (
+        pd.DataFrame({"feature": fit.feature_names, "importance": imps})
+        .sort_values("importance", ascending=False)
+        .reset_index(drop=True)
+    )
+    return df_imp
+
+
+
 # =============================================================================
-# E) Multi-layer Perceptron (MLP) — Planned
+# Multi-layer Perceptron (MLP)
 # =============================================================================
-# Planned functions:
-# - fit_mlp_classifier(...)
-# - predict_proba_mlp(...)
-# - optional: training history extraction (loss curves)
-#
-# Notes:
-# - Fully connected neural network baseline.
-# - May include regularization and early stopping.
+
+@dataclass
+class MLPFit:
+    """
+    Container for an MLP fit plus preprocessing design.
+    """
+    pipe: Pipeline
+    preprocessor: ColumnTransformer
+    feature_names: list[str]
+    categorical_cols: list[str]
+    numeric_cols: list[str]
+
+
+def fit_mlp_classifier(
+    df: pd.DataFrame,
+    *,
+    target_col: str,
+    categorical_cols: list[str],
+    numeric_cols: list[str],
+    random_state: int = 587,
+    hidden_layer_sizes: tuple[int, ...] = (64,),
+    alpha: float = 1e-4,
+    max_iter: int = 200,
+    learning_rate_init: float = 1e-3,
+) -> MLPFit:
+    """
+    Fit an MLP classifier with the project-standard preprocessing pipeline.
+
+    Notes
+    -----
+    - Uses one-hot encoding for categoricals.
+    - Includes a StandardScaler(with_mean=False) step to stabilize optimization
+      with one-hot encoded features.
+    """
+    from sklearn.preprocessing import StandardScaler  # local import to match module style
+
+    X_df = df[categorical_cols + numeric_cols].copy()
+    y = df[target_col].astype(int).to_numpy()
+
+    pre = _build_preprocessor(categorical_cols, numeric_cols, drop_first=False)
+
+    mlp = MLPClassifier(
+        hidden_layer_sizes=hidden_layer_sizes,
+        activation="relu",
+        solver="adam",
+        alpha=alpha,
+        max_iter=max_iter,
+        learning_rate_init=learning_rate_init,
+        random_state=random_state,
+    )
+
+    pipe = Pipeline(
+        steps=[
+            ("preprocess", pre),
+            ("scale", StandardScaler(with_mean=False)),
+            ("mlp", mlp),
+        ]
+    )
+    pipe.fit(X_df, y)
+
+    feature_names = _get_feature_names(pre, categorical_cols, numeric_cols)
+
+    return MLPFit(
+        pipe=pipe,
+        preprocessor=pre,
+        feature_names=feature_names,
+        categorical_cols=categorical_cols,
+        numeric_cols=numeric_cols,
+    )
+
+
+def predict_proba_mlp(fit: MLPFit, df: pd.DataFrame) -> np.ndarray:
+    """
+    Predict probabilities P(y=1) using a fitted MLPFit on new data.
+    """
+    X_df = df[fit.categorical_cols + fit.numeric_cols].copy()
+    p = fit.pipe.predict_proba(X_df)[:, 1]
+    return np.asarray(p).reshape(-1)
