@@ -1,0 +1,16 @@
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+model & threshold & roc_auc & pr_auc & log_loss & brier & accuracy & precision & recall & f1 \\
+\midrule
+ALL & 0.4166 & 0.9445 & 0.9720 & 0.2224 & 0.0696 & 0.9125 & 0.9964 & 0.8572 & 0.9216 \\
+HbA1c & 1.0000 & 0.9327 & 0.9666 & 0.2287 & 0.0715 & 0.9126 & 1.0000 & 0.8544 & 0.9215 \\
+non-HbA1c & 0.6015 & 0.6611 & 0.7411 & 0.6325 & 0.2215 & 0.6017 & 0.7143 & 0.5603 & 0.6280 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{-5pt}
+\caption{Test-set evaluation of XGBoost variants using Youden-selected thresholds (training-only selection).}
+\label{tab:xgb_test_eval_youden}
+\end{table}
