@@ -15,5 +15,6 @@ from . import preprocessing
 from . import modeling
 from . import metrics
 from . import viz
+from . import paths
 
-__all__ = ["schema", "io", "preprocessing", "modeling", "metrics", "viz"]
+__all__ = ["schema", "io", "preprocessing", "modeling", "metrics", "viz", "paths"]

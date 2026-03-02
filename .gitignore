@@ -216,3 +216,6 @@ data/raw/*
 
 # OS specifics
 .DS_Store
+
+
+.vscode/

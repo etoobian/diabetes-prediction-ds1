@@ -300,12 +300,12 @@ def plot_confusion_matrix_binary(
     *,
     title: str | None = None,
     normalize: bool = False,
-    cmap: str = "Blues",
+    cmap: str = "viridis",
     vmax_scale: float = 1.0,
     vmin: float | None = None,
     vmax: float | None = None,
     show_colorbar: bool = True,
-    annot_fontsize: int = 11,
+    annot_fontsize: int = 14,
 ):
     import numpy as np
     import matplotlib.pyplot as plt
@@ -333,13 +333,25 @@ def plot_confusion_matrix_binary(
     fig, ax = plt.subplots(figsize=(4, 4))
     im = ax.imshow(cm_plot, cmap=cmap, vmin=vmin, vmax=vmax)
 
+    # Annotate with contrast logic
+    threshold = (vmin + vmax) / 2.0 if vmin is not None and vmax is not None else cm_plot.max() / 2.0
+
     # Annotate
     for (i, j), val in np.ndenumerate(cm_plot):
+        # Choose text color based on background lightness
+        text_color = "white" if val > threshold else "black"
+
         if normalize:
             text = f"{val:.3f}\n({int(cm[i, j])})"
         else:
             text = f"{int(val)}"
-        ax.text(j, i, text, ha="center", va="center", fontsize=annot_fontsize)
+
+        ax.text(j, i, text, 
+                ha="center", va="center", 
+                fontsize=annot_fontsize,
+                fontweight="bold",
+                color=text_color
+                )
 
     ax.set_xticks([0, 1])
     ax.set_yticks([0, 1])
