@@ -55,8 +55,10 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
 from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+
+from xgboost import XGBClassifier
 
 from statsmodels.tools.sm_exceptions import PerfectSeparationError
 
@@ -691,7 +693,6 @@ def fit_mlp_classifier(
     - Includes a StandardScaler(with_mean=False) step to stabilize optimization
       with one-hot encoded features.
     """
-    from sklearn.preprocessing import StandardScaler  # local import to match module style
 
     X_df = df[categorical_cols + numeric_cols].copy()
     y = df[target_col].astype(int).to_numpy()
@@ -728,6 +729,37 @@ def fit_mlp_classifier(
     )
 
 
+def mlp_fit_summary(name: str, fit: MLPFit) -> dict[str, object]:
+    """
+    Summarize an sklearn MLP pipeline fit (train-only diagnostics).
+    """
+    mlp_est = fit.pipe.named_steps["mlp"]
+
+    n_iter = getattr(mlp_est, "n_iter_", None)
+    loss = getattr(mlp_est, "loss_", None)
+    max_iter = getattr(mlp_est, "max_iter", None)
+
+    hit_max_iter = None
+    if n_iter is not None and max_iter is not None:
+        hit_max_iter = bool(n_iter >= max_iter)
+
+    return {
+        "model": name,
+        "n_cat": len(fit.categorical_cols),
+        "n_num": len(fit.numeric_cols),
+        "n_features_post": len(fit.feature_names),
+        "n_iter": n_iter,
+        "max_iter": max_iter,
+        "hit_max_iter": hit_max_iter,
+        "final_loss": loss,
+    }
+
+
+def mlp_fit_summary_table(fits: dict[str, MLPFit]) -> pd.DataFrame:
+    rows = [mlp_fit_summary(name, fit) for name, fit in fits.items()]
+    return pd.DataFrame(rows)
+
+
 def predict_proba_mlp(fit: MLPFit, df: pd.DataFrame) -> np.ndarray:
     """
     Predict probabilities P(y=1) using a fitted MLPFit on new data.
@@ -735,3 +767,66 @@ def predict_proba_mlp(fit: MLPFit, df: pd.DataFrame) -> np.ndarray:
     X_df = df[fit.categorical_cols + fit.numeric_cols].copy()
     p = fit.pipe.predict_proba(X_df)[:, 1]
     return np.asarray(p).reshape(-1)
+
+
+def permutation_importance_table(
+    fit_pipe: Pipeline,
+    X_df: pd.DataFrame,
+    y: np.ndarray,
+    *,
+    feature_names: list[str],
+    scoring: str = "roc_auc",
+    n_repeats: int = 5,
+    random_state: int = 587,
+    n_jobs: int = -1,
+) -> pd.DataFrame:
+    """
+    Compute permutation importance for any fitted sklearn Pipeline on raw X_df.
+    Returns a sorted DataFrame with columns: feature, importance.
+    """
+    from sklearn.inspection import permutation_importance
+
+    perm = permutation_importance(
+        fit_pipe,
+        X_df,
+        y,
+        n_repeats=n_repeats,
+        random_state=random_state,
+        scoring=scoring,
+        n_jobs=n_jobs,
+    )
+
+    out = (
+        pd.DataFrame({"feature": feature_names, "importance": perm.importances_mean})
+        .sort_values("importance", ascending=False)
+        .reset_index(drop=True)
+    )
+    return out
+
+
+def mlp_permutation_importance(
+    fit: MLPFit,
+    df: pd.DataFrame,
+    *,
+    target_col: str,
+    scoring: str = "roc_auc",
+    n_repeats: int = 5,
+    random_state: int = 587,
+    n_jobs: int = -1,
+) -> pd.DataFrame:
+    """
+    Permutation importance for MLPFit using the stored preprocessing + pipeline.
+    """
+    X_df = df[fit.categorical_cols + fit.numeric_cols].copy()
+    y = df[target_col].astype(int).to_numpy()
+
+    return permutation_importance_table(
+        fit.pipe,
+        X_df,
+        y,
+        feature_names=fit.feature_names,
+        scoring=scoring,
+        n_repeats=n_repeats,
+        random_state=random_state,
+        n_jobs=n_jobs,
+    )
