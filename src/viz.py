@@ -159,7 +159,7 @@ def plot_multiple_roc_curves(
     ax.set_xlabel("False Positive Rate (1 - Specificity)")
     ax.set_ylabel("True Positive Rate (Sensitivity)")
     ax.set_title(title)
-    ax.legend()
+    ax.legend(loc="lower right")
     fig.tight_layout()
 
     return fig, ax
