@@ -1,0 +1,22 @@
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{llrrrrrr}
+\toprule
+variant & model_class & threshold & roc_auc & accuracy & precision & recall & f1 \\
+\midrule
+ALL & Logistic & 0.6773 & 0.9361 & 0.8946 & 0.9751 & 0.8458 & 0.9059 \\
+ALL & XGBoost & 0.4166 & 0.9445 & 0.9125 & 0.9964 & 0.8572 & 0.9216 \\
+ALL & MLP & 0.5324 & 0.9440 & 0.9093 & 0.9943 & 0.8538 & 0.9187 \\
+HbA1c-only & Logistic & 0.6915 & 0.9352 & 0.9126 & 1.0000 & 0.8544 & 0.9215 \\
+HbA1c-only & XGBoost & 1.0000 & 0.9327 & 0.9126 & 1.0000 & 0.8544 & 0.9215 \\
+HbA1c-only & MLP & 0.8501 & 0.9352 & 0.9126 & 1.0000 & 0.8544 & 0.9215 \\
+non-HbA1c & Logistic & 0.6103 & 0.6626 & 0.5986 & 0.7238 & 0.5352 & 0.6153 \\
+non-HbA1c & XGBoost & 0.6015 & 0.6611 & 0.6017 & 0.7143 & 0.5603 & 0.6280 \\
+non-HbA1c & MLP & 0.6337 & 0.6620 & 0.5974 & 0.7247 & 0.5308 & 0.6127 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{-5pt}
+\caption{Test-set comparison across model classes using train-selected Youden thresholds (primary operating point).}
+\label{tab:model_compare_test_youden_full}
+\end{table}
