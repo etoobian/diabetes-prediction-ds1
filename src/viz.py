@@ -159,7 +159,7 @@ def plot_multiple_roc_curves(
     ax.set_xlabel("False Positive Rate (1 - Specificity)")
     ax.set_ylabel("True Positive Rate (Sensitivity)")
     ax.set_title(title)
-    ax.legend()
+    ax.legend(loc="lower right")
     fig.tight_layout()
 
     return fig, ax
@@ -368,3 +368,176 @@ def plot_confusion_matrix_binary(
 
     fig.tight_layout()
     return fig, ax
+
+
+def plot_single_metric_compare_bars(
+    df_cmp: "pd.DataFrame",
+    *,
+    metric: str,
+    variant_order: list[str],
+    model_order: list[str],
+    title: str | None = None,
+):
+    """
+    Plot a single-metric grouped bar chart comparing model classes across dataset variants,
+    using a broken y-axis to zoom into the performance range while still showing the low range.
+
+    Assumptions (opinionated by design)
+    -----------------------------------
+    - `df_cmp` has columns: ['variant', 'model_class', metric]
+    - Variants and model classes are exactly those passed via variant_order/model_order
+    - Uses a fixed, nice palette and fixed styling
+    - Draws a horizontal reference line at the mean metric value for the 'HbA1c-only' variant
+    - Renders bar value labels on the top axis only
+
+    Parameters
+    ----------
+    df_cmp        :  Long-form comparison table.
+    metric        :  Column name of metric to plot (e.g., 'f1', 'roc_auc', 'accuracy').
+    variant_order :  Display order for x-axis variant groups.
+    model_order   :  Display order for bars/legend (model classes).
+    title         :  Optional plot title. If None, a default is used.
+
+    Returns
+    -------
+    fig, (ax_top, ax_bot)
+    """
+    # Pivot to wide for grouped bars
+    wide = df_cmp.pivot(index="variant", columns="model_class", values=metric).loc[
+        variant_order, model_order
+    ]
+
+    # Fixed palette
+    palette = {
+        "Logistic": "#4C72B0",
+        "XGBoost": "#DD8452",
+        "MLP": "#55A868",
+    }
+
+    # Geometry
+    x = np.arange(len(wide.index))
+    n_groups = len(wide.columns)
+    bar_w = 0.2
+
+    # Reference line at HbA1c-only mean
+    hba_ref = float(wide.loc["HbA1c-only", :].mean())
+
+    # Figure + broken axis layout
+    fig = plt.figure(figsize=(10, 5))
+    gs = fig.add_gridspec(nrows=2, ncols=1, height_ratios=[4.3, 0.9], hspace=0.05)
+    ax_top = fig.add_subplot(gs[0])
+    ax_bot = fig.add_subplot(gs[1], sharex=ax_top)
+
+    # Draw bars on both axes
+    for j, col in enumerate(wide.columns):
+        vals = wide[col].to_numpy(dtype=float)
+        xpos = x + (j - (n_groups - 1) / 2) * bar_w
+        color = palette.get(str(col), None)
+
+        bars_top = ax_top.bar(xpos, vals, width=bar_w, label=str(col), color=color)
+        ax_bot.bar(xpos, vals, width=bar_w, color=color)
+
+        # Value labels on TOP axis only
+        for b in bars_top:
+            h = float(b.get_height())
+            ax_top.text(
+                b.get_x() + b.get_width() / 2,
+                h + 0.002,
+                f"{h:.3f}",
+                ha="center",
+                va="bottom",
+                fontsize=10,
+            )
+
+    # Zoom range (top) + low range (bottom)
+    y_min_zoom = max(0.0, float(np.nanmin(wide.to_numpy())) - 0.05)
+    y_max_zoom = min(1.0, float(np.nanmax(wide.to_numpy())) + 0.05)
+
+    ax_top.set_ylim(y_min_zoom, y_max_zoom)
+    ax_bot.set_ylim(0.0, y_min_zoom)
+
+    # Broken-axis styling
+    ax_top.spines["bottom"].set_visible(False)
+    ax_bot.spines["top"].set_visible(False)
+
+    top_ticks = [0.60, 0.70, 0.80, 0.90, 1.00]
+    top_ticks = [t for t in top_ticks if y_min_zoom <= t <= y_max_zoom]
+    ax_top.set_yticks(top_ticks)
+    ax_bot.set_yticks([0.00, 0.20, 0.40])
+
+    # Diagonal marks
+    d = 0.008
+    kwargs = dict(color="k", clip_on=False, linewidth=1.2)
+    ax_top.plot((-d, +d), (-d, +d), transform=ax_top.transAxes, **kwargs)
+    ax_top.plot((1 - d, 1 + d), (-d, +d), transform=ax_top.transAxes, **kwargs)
+    ax_bot.plot((-d, +d), (1 - d, 1 + d), transform=ax_bot.transAxes, **kwargs)
+    ax_bot.plot((1 - d, 1 + d), (1 - d, 1 + d), transform=ax_bot.transAxes, **kwargs)
+
+    # X-axis
+    ax_top.tick_params(labelbottom=False)
+    ax_bot.set_xticks(x)
+    ax_bot.set_xticklabels(wide.index, fontsize=12)
+    # Remove Numeric x-ticks
+    ax_bot.set_xlim(-0.5, len(x) - 0.5)
+    ax_bot.xaxis.set_major_locator(plt.FixedLocator(x))
+    ax_bot.xaxis.set_minor_locator(plt.NullLocator())
+    ax_bot.tick_params(axis="x", which="minor", bottom=False)
+
+    # Titles / labels
+    if title is None:
+        title = (
+            f"Test-Set {metric.upper()} Comparison (Train-Selected Youden Thresholds)"
+        )
+
+    ax_top.set_title(title, fontsize=16, fontweight="bold", pad=10)
+
+    if metric == "f1":
+        y_lab = "F1 Score"
+    else:
+        y_lab = metric.upper()
+    ax_top.set_ylabel(y_lab, fontsize=13, fontweight="bold")
+    ax_bot.set_xlabel("Dataset Variant", fontsize=13, fontweight="bold")
+
+    # Grid: y-only, no vertical lines
+    for a, alpha in [(ax_top, 0.25), (ax_bot, 0.15)]:
+        a.grid(False)
+        a.grid(axis="y", alpha=alpha)
+
+    # Clean spines
+    for ax in (ax_top, ax_bot):
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    # Reference line + label
+    ax_top.axhline(hba_ref, linestyle="--", linewidth=1.6, alpha=0.9)
+    ax_top.text(
+        0.98,
+        hba_ref + 0.001,
+        rf"HbA1c-only reference ($\approx$ {hba_ref:.3f})",
+        ha="right",
+        va="bottom",
+        transform=ax_top.get_yaxis_transform(),
+        fontsize=9,
+        alpha=0.6,
+    )
+
+    # Legend + note
+    leg = ax_top.legend(
+        title="Model Class",
+        loc="upper left",
+        bbox_to_anchor=(0.77, 0.85),
+        frameon=True,
+    )
+    leg.get_frame().set_alpha(0.95)
+
+    fig.text(
+        0.70,
+        0.57,
+        "NOTE: y-axis break zooms\n" "           performance range.",
+        ha="left",
+        va="top",
+        fontsize=9,
+        alpha=0.9,
+    )
+
+    return fig
