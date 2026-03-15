@@ -57,6 +57,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.inspection import permutation_importance
 
 from xgboost import XGBClassifier
 
@@ -784,7 +785,6 @@ def permutation_importance_table(
     Compute permutation importance for any fitted sklearn Pipeline on raw X_df.
     Returns a sorted DataFrame with columns: feature, importance.
     """
-    from sklearn.inspection import permutation_importance
 
     perm = permutation_importance(
         fit_pipe,
