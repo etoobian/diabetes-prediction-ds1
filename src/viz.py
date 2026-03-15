@@ -477,7 +477,7 @@ def plot_single_metric_compare_bars(
     # Titles / labels
     if title is None:
         title = (
-            f"Test-Set {metric.upper()} Comparison (Train-Selected Youden Thresholds)"
+            f"Test-Set {metric.upper()} Comparison Across Model Classes"
         )
 
     ax_top.set_title(title, fontsize=16, fontweight="bold", pad=10)
