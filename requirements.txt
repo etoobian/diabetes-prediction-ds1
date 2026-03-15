@@ -1,9 +1,9 @@
+jupyter
+matplotlib
 numpy
 pandas
 scikit-learn
-matplotlib
-seaborn
-xgboost
-jupyter
-statsmodels
 scipy
+seaborn
+statsmodels
+xgboost
