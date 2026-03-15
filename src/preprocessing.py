@@ -23,9 +23,9 @@ from __future__ import annotations
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
-from .schema import TARGET_COL
 
 from .schema import (
+    TARGET_COL,
     LEAKAGE_COLS,
     CATEGORICAL_COLS,
     BINARY_COLS,

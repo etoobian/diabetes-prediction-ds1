@@ -264,7 +264,6 @@ def pick_threshold_by_youden_j(
         - best_fpr
         - best_specificity
     """
-    from sklearn.metrics import roc_curve
 
     y_true = _to_1d_array(y_true)
     y_prob = _to_1d_array(y_prob)

@@ -33,22 +33,26 @@ data/
 ├── raw/                        # Raw input dataset
 │   └── diabetes_dataset.csv
 ├── processed/                  # Directory for generated, reproducible processed data
-│   └── .gitkeep                # GitHub placeholder file
+|   ├── splits/                 # Stratified 80/20 train and test splits from raw data
+|   ├── curated/                # Train / test splits post-removal of specified variables
+│   └── reduced/                # Reduced datasets used for nested comparison
 
 notebooks/
 └── final_project.ipynb         # Single submission notebook (run top-to-bottom)
 
 src/
 ├── __init__.py                 # Source package initializer
+├── paths.py                    # Centralized project paths and directory initializations
 ├── io.py                       # Data loading/saving and path utilities
+├── schema.py                   # Dataset schema and validation reference
 ├── preprocessing.py            # Cleaning, encoding, scaling, splitting
 ├── modeling.py                 # Model training/evaluation routines
 ├── metrics.py                  # Evaluation metrics and result summaries
 └── viz.py                      # EDA and model comparison visualizations
 
 results/
-├── figures/                    # Saved plots (EDA + model comparison)
-└── tables/                     # Saved tables (metrics, summaries)
+├── figures/                    # Saved plots, organized by notebook section
+└── tables/                     # Saved tables (CSV and LaTex), organized by notebook section
 
 reports/
 ├── final_presentations/        # Final written deliverables (report + slideshow)
@@ -143,25 +147,22 @@ The following supervised learning methods are evaluated:
 
 1. **Logistic Regression**
    - Baseline model
-   - Ridge and LASSO regularization for multicollinearity and interpretability
 
-2. **Random Forest**
-   - Tree-based ensemble for nonlinear interactions
-   - Feature importance comparisons
-
-3. **Gradient Boosting (XGBoost)**
+2. **Gradient Boosting (XGBoost)**
    - High-capacity ensemble method
-   - Bias–variance trade-off analysis
 
-4. **(Optional) Multilayer Perceptron (MLP)**
-   - Shallow neural network explored if time permits
+3. **Multilayer Perceptron (MLP)**
+   - Shallow neural network explored
 
 ---
 
 ## Evaluation Framework
 Models are compared using consistent metrics appropriate for a moderately imbalanced binary outcome (~60/40 split):
 
-- ROC-AUC (primary)
+- ROC-AUC
+- PR-AUC
+- Log-Loss
+- Brier's
 - Accuracy
 - Confusion matrix and derived metrics (precision, recall, F1)
 

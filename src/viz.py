@@ -20,6 +20,8 @@ import numpy as np
 
 from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
 
+from sklearn.calibration import calibration_curve
+
 def set_plot_defaults(
     *,
     figsize: tuple[float, float] = (7.0, 4.5),
@@ -141,9 +143,6 @@ def plot_multiple_roc_curves(
     -------
     (fig, ax)
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from sklearn.metrics import roc_curve, auc
 
     y_true = np.asarray(y_true).reshape(-1)
 
@@ -212,9 +211,6 @@ def plot_multiple_pr_curves(
     -------
     (fig, ax)
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from sklearn.metrics import precision_recall_curve, average_precision_score
 
     y_true = np.asarray(y_true).reshape(-1)
 
@@ -268,9 +264,6 @@ def plot_multiple_calibration_curves(
     strategy: str = "uniform",
     title: str = "Calibration Curves",
 ):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from sklearn.calibration import calibration_curve
 
     y_true = np.asarray(y_true).reshape(-1)
 
@@ -307,8 +300,6 @@ def plot_confusion_matrix_binary(
     show_colorbar: bool = True,
     annot_fontsize: int = 14,
 ):
-    import numpy as np
-    import matplotlib.pyplot as plt
 
     cm = np.array([[tn, fp],
                    [fn, tp]], dtype=float)
@@ -486,7 +477,7 @@ def plot_single_metric_compare_bars(
     # Titles / labels
     if title is None:
         title = (
-            f"Test-Set {metric.upper()} Comparison (Train-Selected Youden Thresholds)"
+            f"Test-Set {metric.upper()} Comparison Across Model Classes"
         )
 
     ax_top.set_title(title, fontsize=16, fontweight="bold", pad=10)
